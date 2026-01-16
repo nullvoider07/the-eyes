@@ -181,7 +181,7 @@ WRAPPER_EOF
             # PKG
             fpm -s dir -t osxpkg \
                 -n eye -v "${VERSION}" -a "$arch" \
-                --identifier "com.nullvoider07.eye" \
+                --osxpkg-identifier-prefix "com.nullvoider07" \
                 --description "Eye Vision Capture Tool" \
                 -C "$fpm_root" \
                 -p "$RELEASE_DIR/${pkg_name}.pkg" \
