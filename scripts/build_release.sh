@@ -14,7 +14,8 @@ echo "========================================="
 rm -rf "$BUILD_DIR" "$RELEASE_DIR"
 mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
 
-# Check for FPM (Required for deb/rpm/pkg) if ! command -v fpm &> /dev/null; then
+# Check for FPM (Required for deb/rpm/pkg)
+if ! command -v fpm &> /dev/null; then
     echo "⚠️  WARNING: 'fpm' is not installed."
     echo "   .deb, .rpm, and .pkg files will NOT be generated."
     echo "   To fix: gem install fpm"
