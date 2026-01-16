@@ -15,6 +15,9 @@ echo "========================================="
 rm -rf "$BUILD_DIR" "$RELEASE_DIR" "dist"
 mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
 
+# Get absolute path for RELEASE_DIR to avoid relative path issues
+RELEASE_DIR_ABS="$(cd "$RELEASE_DIR" && pwd)"
+
 # Check for FPM (Required for deb/rpm/pkg)
 if ! command -v fpm &> /dev/null; then
     echo "⚠️  WARNING: 'fpm' is not installed."
@@ -132,11 +135,12 @@ create_package() {
     create_package_readme "$pkg_dir" "$os" "$arch"
     
     # --- Generate Primary Archive (.zip / .tar.gz) ---
+    # Use absolute path for RELEASE_DIR to avoid relative path issues
     if [ "$os" = "windows" ]; then
-        (cd "$BUILD_DIR" && zip -r "$RELEASE_DIR/${pkg_name}.zip" "$pkg_name")
+        (cd "$BUILD_DIR" && zip -r "${RELEASE_DIR_ABS}/${pkg_name}.zip" "$pkg_name")
         echo "  ✓ Created ${pkg_name}.zip"
     else
-        tar -czf "$RELEASE_DIR/${pkg_name}.tar.gz" -C "$BUILD_DIR" "$pkg_name"
+        tar -czf "${RELEASE_DIR_ABS}/${pkg_name}.tar.gz" -C "$BUILD_DIR" "$pkg_name"
         echo "  ✓ Created ${pkg_name}.tar.gz"
     fi
 
@@ -170,7 +174,7 @@ WRAPPER_EOF
                 --description "Eye Vision Capture Tool" \
                 --url "https://github.com/$REPO" \
                 -C "$fpm_root" \
-                -p "$RELEASE_DIR/${pkg_name}.deb" \
+                -p "${RELEASE_DIR_ABS}/${pkg_name}.deb" \
                 --after-install scripts/postinstall.sh \
                 usr/local/bin usr/local/lib
             echo "  ✓ Created ${pkg_name}.deb"
@@ -181,7 +185,7 @@ WRAPPER_EOF
                 --description "Eye Vision Capture Tool" \
                 --url "https://github.com/$REPO" \
                 -C "$fpm_root" \
-                -p "$RELEASE_DIR/${pkg_name}.rpm" \
+                -p "${RELEASE_DIR_ABS}/${pkg_name}.rpm" \
                 --after-install scripts/postinstall.sh \
                 usr/local/bin usr/local/lib
             echo "  ✓ Created ${pkg_name}.rpm"
@@ -195,7 +199,7 @@ WRAPPER_EOF
                 --osxpkg-identifier-prefix "com.nullvoider07" \
                 --description "Eye Vision Capture Tool" \
                 -C "$fpm_root" \
-                -p "$RELEASE_DIR/${pkg_name}.pkg" \
+                -p "${RELEASE_DIR_ABS}/${pkg_name}.pkg" \
                 usr/local/bin usr/local/lib
             echo "  ✓ Created ${pkg_name}.pkg"
         fi
@@ -343,11 +347,6 @@ System Requirements:
 - For capture: Display server (X11/Wayland/native)
 - Linux: gnome-screenshot or flameshot
 - Dependencies: mss, pillow, requests, click, pyyaml
-
-LICENSE
-=======
-
-MIT License - See https://github.com/${REPO}/blob/main/LICENSE
 README_EOF
 }
 
