@@ -2,16 +2,17 @@
 set -e
 
 VERSION="${1:-0.1.0}"
+TARGET_OS="$2"
 REPO="nullvoider07/the-eye"
 BUILD_DIR="staging"
 RELEASE_DIR="release"
 
 echo "========================================="
-echo "Building Eye v${VERSION}"
+echo "Building Eye v${VERSION} (Target: ${TARGET_OS:-ALL})"
 echo "========================================="
 
 # Clean previous builds
-rm -rf "$BUILD_DIR" "$RELEASE_DIR"
+rm -rf "$BUILD_DIR" "$RELEASE_DIR" "dist"
 mkdir -p "$BUILD_DIR" "$RELEASE_DIR"
 
 # Check for FPM (Required for deb/rpm/pkg)
@@ -49,6 +50,17 @@ platforms=(
 for platform in "${platforms[@]}"; do
     IFS='/' read -r GOOS GOARCH <<< "$platform"
     
+    # --- SPLIT BUILD FILTER ---
+    if [ -n "$TARGET_OS" ]; then
+        if [ "$TARGET_OS" = "linux" ]; then
+            # Linux job builds Linux AND Windows
+            if [ "$GOOS" != "linux" ] && [ "$GOOS" != "windows" ]; then continue; fi
+        elif [ "$GOOS" != "$TARGET_OS" ]; then
+            continue
+        fi
+    fi
+    # --------------------------
+
     output="eye-server"
     if [ "$GOOS" = "windows" ]; then
         output="eye-server.exe"
@@ -71,7 +83,7 @@ echo "[2/6] Packaging Python components..."
 # Create source distribution
 python3 setup.py sdist bdist_wheel
 
-# Copy to build dir
+# Copy to staging dir
 cp dist/*.whl "$BUILD_DIR/"
 cp dist/*.tar.gz "$BUILD_DIR/"
 
@@ -87,7 +99,7 @@ create_package() {
     local pkg_name="eye-${VERSION}-${os}-${arch}"
     local pkg_dir="$BUILD_DIR/$pkg_name"
     
-    # --- Standard Tarball/Zip Setup (Preserved) ---
+    # --- Standard Tarball/Zip Setup ---
     mkdir -p "$pkg_dir/bin"
     mkdir -p "$pkg_dir/lib"
     mkdir -p "$pkg_dir/scripts"
@@ -128,11 +140,11 @@ create_package() {
         echo "  ✓ Created ${pkg_name}.tar.gz"
     fi
 
-    # --- NEW: Generate System Packages (.deb, .rpm, .pkg) ---
+    # --- Generate System Packages (.deb, .rpm, .pkg) ---
     if command -v fpm >/dev/null && [ "$os" != "windows" ]; then
         local fpm_root="$BUILD_DIR/fpm_${pkg_name}"
         
-        # 1. Create System Directory Structure (FHS Compliant)
+        # 1. Create System Directory Structure
         mkdir -p "$fpm_root/usr/local/bin"
         mkdir -p "$fpm_root/usr/local/lib/eye"
         
@@ -141,7 +153,6 @@ create_package() {
         cp -r "$pkg_dir/lib/"* "$fpm_root/usr/local/lib/eye/"
         
         # 3. Create System Wrapper Script
-        # (This differs from the tarball installer; it must point to the absolute path)
         cat > "$fpm_root/usr/local/bin/eye" << 'WRAPPER_EOF'
 #!/usr/bin/env python3
 import sys
@@ -178,7 +189,7 @@ WRAPPER_EOF
 
         # 5. Build macOS Packages
         if [ "$os" = "darwin" ]; then
-            # PKG
+            # PKG - Fixed identifier flag
             fpm -s dir -t osxpkg \
                 -n eye -v "${VERSION}" -a "$arch" \
                 --osxpkg-identifier-prefix "com.nullvoider07" \
@@ -343,16 +354,31 @@ README_EOF
 # Build all platforms
 for platform in "${platforms[@]}"; do
     IFS='/' read -r os arch <<< "$platform"
+    
+    # --- SPLIT BUILD FILTER ---
+    if [ -n "$TARGET_OS" ]; then
+        if [ "$TARGET_OS" = "linux" ]; then
+            if [ "$os" != "linux" ] && [ "$os" != "windows" ]; then continue; fi
+        elif [ "$os" != "$TARGET_OS" ]; then
+            continue
+        fi
+    fi
+    # --------------------------
+
     create_package "$os" "$arch"
 done
 
 # ============================================================================
-# Create Universal Installer Script
+# Create Universal Installer & Notes (Only on Linux/Main build)
 # ============================================================================
 
-echo "[4/6] Creating universal installer..."
+# Only generate these if we are running a Linux build (or full build)
+# This prevents the Mac runner from overwriting them redundantly
+if [ -z "$TARGET_OS" ] || [ "$TARGET_OS" = "linux" ]; then
 
-cat > "$RELEASE_DIR/install.sh" << 'UNIVERSAL_INSTALLER_EOF'
+    echo "[4/6] Creating universal installer..."
+
+    cat > "$RELEASE_DIR/install.sh" << 'UNIVERSAL_INSTALLER_EOF'
 #!/bin/bash
 # Eye Universal Installer
 # Detects platform and downloads appropriate version
@@ -399,25 +425,25 @@ rm -rf /tmp/eye*
 echo "✅ Eye installed successfully!"
 UNIVERSAL_INSTALLER_EOF
 
-chmod +x "$RELEASE_DIR/install.sh"
+    chmod +x "$RELEASE_DIR/install.sh"
 
-# ============================================================================
-# Create Checksums
-# ============================================================================
+    # ============================================================================
+    # Create Checksums
+    # ============================================================================
 
-echo "[5/6] Creating checksums..."
+    echo "[5/6] Creating checksums..."
 
-cd "$RELEASE_DIR"
-sha256sum * > SHA256SUMS
-cd -
+    cd "$RELEASE_DIR"
+    sha256sum * > SHA256SUMS
+    cd -
 
-# ============================================================================
-# Create Release Notes
-# ============================================================================
+    # ============================================================================
+    # Create Release Notes
+    # ============================================================================
 
-echo "[6/6] Creating release notes..."
+    echo "[6/6] Creating release notes..."
 
-cat > "$RELEASE_DIR/RELEASE_NOTES.md" << NOTES_EOF
+    cat > "$RELEASE_DIR/RELEASE_NOTES.md" << NOTES_EOF
 # Eye v${VERSION}
 
 Vision capture tool for AI/CUA workflows.
@@ -481,6 +507,8 @@ See SHA256SUMS file for package verification.
 - Issues: https://github.com/$REPO/issues
 - Documentation: https://github.com/$REPO#readme
 NOTES_EOF
+
+fi
 
 echo ""
 echo "========================================="
