@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+
+jobs:
+  build:
+    name: Build Release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    # Required for building .deb, .rpm, .pkg
+    - name: Install Packaging Tools
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y rpm ruby ruby-dev build-essential
+        sudo gem install --no-document fpm
+
+    - name: Install dependencies
+      run: |
+        pip install build wheel
+        go mod download
+    
+    # NEW: Logic to handle both Tags and Manual Inputs
+    - name: Determine Version
+      id: get_version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "RAW_VERSION=${{ inputs.version }}" >> $GITHUB_ENV
+        else
+          echo "RAW_VERSION=${{ github.ref_name }}" >> $GITHUB_ENV
+        fi
+
+    - name: Build release
+      run: |
+        chmod +x scripts/build_release.sh
+        
+        # Clean the version string (removes 'v' prefix if present)
+        CLEAN_VERSION="${RAW_VERSION#v}"
+        
+        echo "Building version: $CLEAN_VERSION"
+        ./scripts/build_release.sh "$CLEAN_VERSION"
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: release/*
+        body_path: release/RELEASE_NOTES.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

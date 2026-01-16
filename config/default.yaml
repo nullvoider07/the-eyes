@@ -1,0 +1,12 @@
+capture:
+  interval: 1.5
+  format: png
+  quality: 100
+
+server:
+  host: 0.0.0.0
+  port: 8080
+
+storage:
+  mode: memory
+  max_frames: 100
