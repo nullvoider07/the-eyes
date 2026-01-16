@@ -3,7 +3,7 @@ set -e
 
 VERSION="${1:-0.1.0}"
 REPO="nullvoider07/the-eye"
-BUILD_DIR="dist"
+BUILD_DIR="staging"
 RELEASE_DIR="release"
 
 echo "========================================="
