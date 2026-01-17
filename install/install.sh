@@ -32,16 +32,6 @@ case "${ARCH}" in
     *)         echo "❌ Unsupported Architecture: ${ARCH}"; exit 1;;
 esac
 
-# --- NEW: Check for Rosetta (macOS) ---
-# If we are on macOS and detected x64, check if we are actually on Apple Silicon
-if [[ "$OS_TYPE" == "osx" && "$ARCH_TYPE" == "x64" ]]; then
-    if [[ $(sysctl -n sysctl.proc_translated 2>/dev/null) == "1" ]]; then
-        echo "⚠️  Rosetta environment detected."
-        echo "   Switching to native ARM64 build for better performance."
-        ARCH_TYPE="arm64"
-    fi
-fi
-
 echo "Detected: ${OS_TYPE} (${ARCH_TYPE})"
 
 # ============================================================================
@@ -56,47 +46,33 @@ if [ -z "$LATEST_TAG" ]; then
     exit 1
 fi
 
+# Extract version
 VERSION=${LATEST_TAG#v}
 echo "Latest Version: ${VERSION}"
 
 # ============================================================================
-# Download Release Package (With Fallback)
+# Construct Download URL
 # ============================================================================
+FILE_NAME="eye-${VERSION}-${OS_TYPE}-${ARCH_TYPE}.tar.gz"
+DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$FILE_NAME"
+
+echo "Download URL: $DOWNLOAD_URL"
+
+# ============================================================================
+# Download Release Package
+# ============================================================================
+echo "Downloading Eye v${VERSION}..."
 TMP_FILE="/tmp/eye-install-$$.tar.gz"
 
-# Function to try downloading a specific filename
-try_download() {
-    local os=$1
-    local arch=$2
-    local filename="eye-${VERSION}-${os}-${arch}.tar.gz"
-    local url="https://github.com/$REPO/releases/download/$LATEST_TAG/$filename"
-    
-    echo "Attempting download: $filename"
-    if curl -L -f -s -o "$TMP_FILE" "$url"; then
-        return 0
-    else
-        return 1
-    fi
-}
-
-# 1. Try Primary (e.g., eye-0.1.0-osx-x64.tar.gz)
-if try_download "$OS_TYPE" "$ARCH_TYPE"; then
-    echo "✅ Downloaded successfully"
-
-# 2. Try Fallback Naming (e.g., eye-0.1.0-darwin-amd64.tar.gz)
-#    (Handles cases where build script uses standard Go naming)
-elif [ "$OS_TYPE" == "osx" ] && try_download "darwin" "amd64"; then
-    echo "✅ Downloaded successfully (using 'darwin-amd64' fallback)"
-    
-elif [ "$ARCH_TYPE" == "x64" ] && try_download "$OS_TYPE" "amd64"; then
-    echo "✅ Downloaded successfully (using 'amd64' fallback)"
-
-else
+if ! curl -L -f -o "$TMP_FILE" "$DOWNLOAD_URL"; then
     echo "❌ Download failed."
-    echo "Could not find a release asset for your platform."
-    echo "Tried: eye-${VERSION}-${OS_TYPE}-${ARCH_TYPE}.tar.gz"
+    echo "Please check:"
+    echo "  1. Release exists: https://github.com/$REPO/releases/tag/$LATEST_TAG"
+    echo "  2. Asset exists: $FILE_NAME"
     exit 1
 fi
+
+echo "✅ Downloaded successfully"
 
 # ============================================================================
 # Extract Archive
@@ -108,30 +84,33 @@ mkdir -p "$TMP_DIR"
 tar -xzf "$TMP_FILE" -C "$TMP_DIR"
 
 # ============================================================================
-# Verify & Install
+# Verify Binaries Exist
 # ============================================================================
-# Smart search for binaries in extracted folder
-find_binary() {
-    local name=$1
-    find "$TMP_DIR" -type f -name "$name" | head -n 1
-}
-
-SERVER_PATH=$(find_binary "$SERVER_BINARY")
-CLI_PATH=$(find_binary "$CLI_BINARY")
-
-if [ -z "$SERVER_PATH" ]; then
-    echo "❌ Error: Could not find $SERVER_BINARY in the package."
+if [ ! -f "$TMP_DIR/bin/$SERVER_BINARY" ]; then
+    echo "❌ Error: $SERVER_BINARY not found in package"
+    ls -la "$TMP_DIR"
     exit 1
 fi
 
+if [ ! -f "$TMP_DIR/bin/$CLI_BINARY" ]; then
+    echo "❌ Error: $CLI_BINARY not found in package"
+    ls -la "$TMP_DIR"
+    exit 1
+fi
+
+# ============================================================================
+# Install Binaries
+# ============================================================================
 echo "Installing to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
 
-cp "$SERVER_PATH" "$INSTALL_DIR/"
-[ -n "$CLI_PATH" ] && cp "$CLI_PATH" "$INSTALL_DIR/"
+# Copy both binaries
+cp "$TMP_DIR/bin/$SERVER_BINARY" "$INSTALL_DIR/"
+cp "$TMP_DIR/bin/$CLI_BINARY" "$INSTALL_DIR/"
 
+# Make executable
 chmod +x "$INSTALL_DIR/$SERVER_BINARY"
-[ -n "$CLI_PATH" ] && chmod +x "$INSTALL_DIR/$CLI_BINARY"
+chmod +x "$INSTALL_DIR/$CLI_BINARY"
 
 # ============================================================================
 # macOS Specific: Remove Quarantine
@@ -148,7 +127,7 @@ fi
 rm -rf "$TMP_FILE" "$TMP_DIR"
 
 # ============================================================================
-# Update PATH
+# Update PATH if Needed
 # ============================================================================
 SHELL_CONFIG=""
 case "$SHELL" in
@@ -170,17 +149,34 @@ else
 fi
 
 # ============================================================================
-# Done
+# Installation Complete
 # ============================================================================
 echo ""
 echo "========================================="
 echo "✅ Eye v${VERSION} installed successfully!"
 echo "========================================="
 echo ""
+echo "Installed binaries:"
+echo "  • eye-server  → $INSTALL_DIR/$SERVER_BINARY"
+echo "  • eye         → $INSTALL_DIR/$CLI_BINARY"
+echo ""
+echo "Quick Start:"
+echo "  # Terminal 1: Start server"
+echo "  eye-server"
+echo ""
+echo "  # Terminal 2: Start agent"
+echo "  eye agent start --server http://localhost:8080 --token mytoken"
+echo ""
+
 if [ "$PATH_UPDATED" = true ]; then
-    echo "⚠️  PATH updated. Please restart your terminal or run:"
+    echo "⚠️  PATH updated. Apply changes with:"
     echo "  source $SHELL_CONFIG"
+    echo ""
+    echo "Or restart your terminal."
 else
-    echo "Run 'eye --help' to get started."
+    echo "Try it now:"
+    echo "  eye --help"
+    echo "  eye-server --help"
 fi
+
 echo ""
