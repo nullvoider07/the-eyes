@@ -17,7 +17,7 @@ CLI_BINARY="eye"
 OS="$(uname -s)"
 case "${OS}" in
     Linux*)     OS_TYPE="linux";;
-    Darwin*)    OS_TYPE="osx";;
+    Darwin*)    OS_TYPE="darwin";;
     *)          echo "❌ Unsupported OS: ${OS}"; exit 1;;
 esac
 
@@ -115,7 +115,7 @@ chmod +x "$INSTALL_DIR/$CLI_BINARY"
 # ============================================================================
 # macOS Specific: Remove Quarantine
 # ============================================================================
-if [[ "$OS_TYPE" == "osx" ]]; then
+if [[ "$OS_TYPE" == "darwin" ]]; then
     echo "Removing macOS quarantine attributes..."
     xattr -d com.apple.quarantine "$INSTALL_DIR/$SERVER_BINARY" 2>/dev/null || true
     xattr -d com.apple.quarantine "$INSTALL_DIR/$CLI_BINARY" 2>/dev/null || true
