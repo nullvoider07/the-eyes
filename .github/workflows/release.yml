@@ -191,9 +191,51 @@ jobs:
         with:
           name: macos-arm64-assets
           path: eye-*.tar.gz
+  
+  # ============================================================================
+  # JOB 4: MACOS BUILD (Intel / x64)
+  # ============================================================================
+  build-macos-x64:
+    runs-on: macos-13 # Intel Runner (macOS 13 is the last Intel image)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with: { go-version: '1.21' }
+      - uses: actions/setup-python@v4
+        with: { python-version: '3.11' }
+      - name: Install Dependencies
+        run: pip install pyinstaller mss pillow requests click pyyaml
+
+      - name: Build Go Server
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o eye-server cmd/server/main.go
+
+      - name: Build Python CLI
+        run: |
+          pyinstaller --onefile --name eye --add-data "eye:eye" \
+            --hidden-import=mss --hidden-import=PIL --hidden-import=requests \
+            --hidden-import=click --hidden-import=yaml eye/cli.py
+
+      - name: Get Version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create Package
+        run: |
+          mkdir -p package/bin
+          cp eye-server package/bin/
+          cp dist/eye package/bin/
+          chmod +x package/bin/*
+          cd package
+          tar -czvf ../eye-${{ steps.version.outputs.VERSION }}-osx-x64.tar.gz .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-x64-assets
+          path: eye-*.tar.gz
 
   # ============================================================================
-  # JOB 4: WINDOWS BUILD (x64)
+  # JOB 5: WINDOWS BUILD (x64)
   # ============================================================================
   build-windows-x64:
     runs-on: windows-latest
