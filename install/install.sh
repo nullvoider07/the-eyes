@@ -17,7 +17,7 @@ CLI_BINARY="eye"
 OS="$(uname -s)"
 case "${OS}" in
     Linux*)     OS_TYPE="linux";;
-    Darwin*)    OS_TYPE="darwin";;
+    Darwin*)    OS_TYPE="osx";;     # CHANGED: 'darwin' -> 'osx' to match your release asset
     *)          echo "❌ Unsupported OS: ${OS}"; exit 1;;
 esac
 
@@ -26,7 +26,7 @@ esac
 # ============================================================================
 ARCH="$(uname -m)"
 case "${ARCH}" in
-    x86_64)    ARCH_TYPE="amd64";;
+    x86_64)    ARCH_TYPE="x64";;    # CHANGED: 'amd64' -> 'x64' to match your release asset
     arm64)     ARCH_TYPE="arm64";;
     aarch64)   ARCH_TYPE="arm64";;
     *)         echo "❌ Unsupported Architecture: ${ARCH}"; exit 1;;
@@ -53,6 +53,7 @@ echo "Latest Version: ${VERSION}"
 # ============================================================================
 # Construct Download URL
 # ============================================================================
+# Filename format: eye-0.1.0-osx-x64.tar.gz
 FILE_NAME="eye-${VERSION}-${OS_TYPE}-${ARCH_TYPE}.tar.gz"
 DOWNLOAD_URL="https://github.com/$REPO/releases/download/$LATEST_TAG/$FILE_NAME"
 
@@ -86,14 +87,16 @@ tar -xzf "$TMP_FILE" -C "$TMP_DIR"
 # ============================================================================
 # Verify Binaries Exist
 # ============================================================================
-if [ ! -f "$TMP_DIR/bin/$SERVER_BINARY" ]; then
-    echo "❌ Error: $SERVER_BINARY not found in package"
-    ls -la "$TMP_DIR"
-    exit 1
+# Check both generic path and version-nested path
+SOURCE_DIR="$TMP_DIR"
+if [ -d "$TMP_DIR/eye-${VERSION}-${OS_TYPE}-${ARCH_TYPE}" ]; then
+    SOURCE_DIR="$TMP_DIR/eye-${VERSION}-${OS_TYPE}-${ARCH_TYPE}"
+elif [ -d "$TMP_DIR/eye" ]; then
+    SOURCE_DIR="$TMP_DIR/eye"
 fi
 
-if [ ! -f "$TMP_DIR/bin/$CLI_BINARY" ]; then
-    echo "❌ Error: $CLI_BINARY not found in package"
+if [ ! -f "$SOURCE_DIR/bin/$SERVER_BINARY" ] && [ ! -f "$SOURCE_DIR/$SERVER_BINARY" ]; then
+    echo "❌ Error: $SERVER_BINARY not found in package"
     ls -la "$TMP_DIR"
     exit 1
 fi
@@ -104,18 +107,28 @@ fi
 echo "Installing to $INSTALL_DIR..."
 mkdir -p "$INSTALL_DIR"
 
-# Copy both binaries
-cp "$TMP_DIR/bin/$SERVER_BINARY" "$INSTALL_DIR/"
-cp "$TMP_DIR/bin/$CLI_BINARY" "$INSTALL_DIR/"
+# Install Server
+if [ -f "$SOURCE_DIR/bin/$SERVER_BINARY" ]; then
+    cp "$SOURCE_DIR/bin/$SERVER_BINARY" "$INSTALL_DIR/"
+else
+    cp "$SOURCE_DIR/$SERVER_BINARY" "$INSTALL_DIR/"
+fi
+
+# Install CLI
+if [ -f "$SOURCE_DIR/bin/$CLI_BINARY" ]; then
+    cp "$SOURCE_DIR/bin/$CLI_BINARY" "$INSTALL_DIR/"
+else
+    cp "$SOURCE_DIR/$CLI_BINARY" "$INSTALL_DIR/" 2>/dev/null || true
+fi
 
 # Make executable
 chmod +x "$INSTALL_DIR/$SERVER_BINARY"
-chmod +x "$INSTALL_DIR/$CLI_BINARY"
+chmod +x "$INSTALL_DIR/$CLI_BINARY" 2>/dev/null || true
 
 # ============================================================================
 # macOS Specific: Remove Quarantine
 # ============================================================================
-if [[ "$OS_TYPE" == "darwin" ]]; then
+if [[ "$OS_TYPE" == "osx" ]]; then
     echo "Removing macOS quarantine attributes..."
     xattr -d com.apple.quarantine "$INSTALL_DIR/$SERVER_BINARY" 2>/dev/null || true
     xattr -d com.apple.quarantine "$INSTALL_DIR/$CLI_BINARY" 2>/dev/null || true
