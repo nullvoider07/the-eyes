@@ -26,7 +26,7 @@ esac
 # ============================================================================
 ARCH="$(uname -m)"
 case "${ARCH}" in
-    x86_64)    ARCH_TYPE="x64";;
+    x86_64)    ARCH_TYPE="amd64";;
     arm64)     ARCH_TYPE="arm64";;
     aarch64)   ARCH_TYPE="arm64";;
     *)         echo "❌ Unsupported Architecture: ${ARCH}"; exit 1;;
