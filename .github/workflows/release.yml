@@ -1,146 +1,313 @@
-name: Release
+# .github/workflows/release.yml
+# Eye Vision Capture Tool - Release Workflow
+# Builds binaries using PyInstaller and publishes to GitHub Releases
+
+name: Release Eye
 
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to release'
-        required: true
 
 permissions:
   contents: write
 
 jobs:
   # ============================================================================
-  # JOB 1: Linux & Windows Build
+  # JOB 1: LINUX BUILD (x64)
   # ============================================================================
-  build-linux:
-    name: Build Linux & Windows
+  build-linux-x64:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      
       - uses: actions/setup-go@v4
-        with: { go-version: '1.21' }
-      - uses: actions/setup-python@v4
-        with: { python-version: '3.11' }
-      
-      # Install Linux Tools (rpm, fpm)
-      - name: Install Packaging Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rpm ruby ruby-dev build-essential dos2unix
-          sudo gem install --no-document fpm
-      
-      - name: Fix Line Endings
-        run: dos2unix scripts/build_release.sh
-      
-      - name: Install Deps
-        run: |
-          pip install build wheel
-          go mod download
-
-      - name: Build
-        run: |
-          chmod +x scripts/build_release.sh
-          
-          # Determine Version
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VER="${{ inputs.version }}"
-          else
-            VER="${{ github.ref_name }}"
-          fi
-          CLEAN_VER="${VER#v}"
-          
-          echo "Building Linux/Windows for version: $CLEAN_VER"
-          
-          # Run script with 'linux' target (Builds Linux + Windows)
-          ./scripts/build_release.sh "$CLEAN_VER" linux
-      
-      - name: Upload Linux Artifacts
-        uses: actions/upload-artifact@v4
         with:
-          name: linux-windows-artifacts
-          path: release/*
-
-  # ============================================================================
-  # JOB 2: macOS Build
-  # ============================================================================
-  build-macos:
-    name: Build macOS
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v4
-        with: { go-version: '1.21' }
+          go-version: '1.21'
+      
       - uses: actions/setup-python@v4
-        with: { python-version: '3.11' }
-      
-      # Install Mac Tools (fpm via brew)
-      - name: Install Packaging Tools
-        run: |
-          brew install dos2unix
-          gem install --no-document fpm
-      
-      - name: Fix Line Endings
-        run: dos2unix scripts/build_release.sh
-
-      - name: Install Deps
-        run: |
-          pip install build wheel
-          go mod download
-
-      - name: Build
-        run: |
-          chmod +x scripts/build_release.sh
-          
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VER="${{ inputs.version }}"
-          else
-            VER="${{ github.ref_name }}"
-          fi
-          CLEAN_VER="${VER#v}"
-          
-          echo "Building macOS for version: $CLEAN_VER"
-          
-          # Run script with 'darwin' target
-          ./scripts/build_release.sh "$CLEAN_VER" darwin
-      
-      - name: Upload macOS Artifacts
-        uses: actions/upload-artifact@v4
         with:
-          name: macos-artifacts
-          path: release/*
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: pip install pyinstaller mss pillow requests click pyyaml
+
+      # Build Go Server
+      - name: Build Go Server
+        run: |
+          GOOS=linux GOARCH=amd64 go build \
+            -ldflags="-s -w" \
+            -o eye-server \
+            cmd/server/main.go
+
+      # Build Python CLI
+      - name: Build Python CLI
+        run: |
+          pyinstaller --onefile \
+            --name eye \
+            --add-data "eye:eye" \
+            --hidden-import=mss \
+            --hidden-import=PIL \
+            --hidden-import=requests \
+            --hidden-import=click \
+            --hidden-import=yaml \
+            eye/cli.py
+
+      # Get Version
+      - name: Get Version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      # Package Everything
+      - name: Create Package
+        run: |
+          mkdir -p package/bin
+          cp eye-server package/bin/
+          cp dist/eye package/bin/
+          chmod +x package/bin/*
+          
+          cd package
+          tar -czvf ../eye-${{ steps.version.outputs.VERSION }}-linux-x64.tar.gz .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-assets
+          path: eye-*.tar.gz
 
   # ============================================================================
-  # JOB 3: Publish Release
+  # JOB 2: LINUX BUILD (arm64)
   # ============================================================================
-  publish:
-    name: Publish Release
-    needs: [build-linux, build-macos]
+  build-linux-arm64:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
-      - name: Download Artifacts
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: pip install pyinstaller mss pillow requests click pyyaml
+
+      # Build Go Server (ARM64)
+      - name: Build Go Server
+        run: |
+          GOOS=linux GOARCH=arm64 go build \
+            -ldflags="-s -w" \
+            -o eye-server \
+            cmd/server/main.go
+
+      # Build Python CLI
+      - name: Build Python CLI
+        run: |
+          pyinstaller --onefile \
+            --name eye \
+            --add-data "eye:eye" \
+            --hidden-import=mss \
+            --hidden-import=PIL \
+            --hidden-import=requests \
+            --hidden-import=click \
+            --hidden-import=yaml \
+            eye/cli.py
+
+      - name: Get Version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create Package
+        run: |
+          mkdir -p package/bin
+          cp eye-server package/bin/
+          cp dist/eye package/bin/
+          chmod +x package/bin/*
+          
+          cd package
+          tar -czvf ../eye-${{ steps.version.outputs.VERSION }}-linux-arm64.tar.gz .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64-assets
+          path: eye-*.tar.gz
+
+  # ============================================================================
+  # JOB 3: MACOS BUILD (Apple Silicon)
+  # ============================================================================
+  build-macos-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: pip install pyinstaller mss pillow requests click pyyaml
+
+      # Build Go Server
+      - name: Build Go Server
+        run: |
+          GOOS=darwin GOARCH=arm64 go build \
+            -ldflags="-s -w" \
+            -o eye-server \
+            cmd/server/main.go
+
+      # Build Python CLI
+      - name: Build Python CLI
+        run: |
+          pyinstaller --onefile \
+            --name eye \
+            --add-data "eye:eye" \
+            --hidden-import=mss \
+            --hidden-import=PIL \
+            --hidden-import=requests \
+            --hidden-import=click \
+            --hidden-import=yaml \
+            eye/cli.py
+
+      - name: Get Version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create Package
+        run: |
+          mkdir -p package/bin
+          cp eye-server package/bin/
+          cp dist/eye package/bin/
+          chmod +x package/bin/*
+          
+          cd package
+          tar -czvf ../eye-${{ steps.version.outputs.VERSION }}-osx-arm64.tar.gz .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-arm64-assets
+          path: eye-*.tar.gz
+
+  # ============================================================================
+  # JOB 4: WINDOWS BUILD (x64)
+  # ============================================================================
+  build-windows-x64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+      
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install Dependencies
+        run: pip install pyinstaller mss pillow requests click pyyaml
+
+      # Build Go Server
+      - name: Build Go Server
+        run: |
+          go build -ldflags="-s -w" -o eye-server.exe cmd/server/main.go
+
+      # Build Python CLI
+      - name: Build Python CLI
+        run: |
+          pyinstaller --onefile `
+            --name eye.exe `
+            --add-data "eye;eye" `
+            --hidden-import=mss `
+            --hidden-import=PIL `
+            --hidden-import=requests `
+            --hidden-import=click `
+            --hidden-import=yaml `
+            eye/cli.py
+
+      - name: Get Version
+        id: version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Create Package
+        run: |
+          mkdir package
+          mkdir package\bin
+          copy eye-server.exe package\bin\
+          copy dist\eye.exe package\bin\
+          
+          Compress-Archive -Path package\* -DestinationPath eye-${{ steps.version.outputs.VERSION }}-win-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-assets
+          path: eye-*.zip
+
+  # ============================================================================
+  # JOB 6: CREATE RELEASE
+  # ============================================================================
+  release:
+    needs: 
+      - build-linux-x64
+      - build-linux-arm64
+      - build-macos-arm64
+      - build-windows-x64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: '*-artifacts'
+          path: release-assets
           merge-multiple: true
-          path: release_assets
 
-      - name: List Files (Debug)
-        run: ls -R release_assets
+      - name: List Assets
+        run: ls -lh release-assets/
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: release_assets/*
-          body_path: release_assets/RELEASE_NOTES.md
+          files: release-assets/*
           draft: false
           prerelease: false
+          body: |
+            # Eye Vision Capture Tool
+            
+            Download the package for your platform:
+            
+            - **Linux x64**: `eye-*-linux-x64.tar.gz`
+            - **Linux ARM64**: `eye-*-linux-arm64.tar.gz`
+            - **macOS (Intel)**: `eye-*-osx-x64.tar.gz`
+            - **macOS (Apple Silicon)**: `eye-*-osx-arm64.tar.gz`
+            - **Windows x64**: `eye-*-win-x64.zip`
+            
+            ## Installation
+            
+            Extract and copy binaries to your PATH:
+            
+            ```bash
+            # Linux/macOS
+            tar -xzf eye-*.tar.gz
+            sudo cp bin/* /usr/local/bin/
+            
+            # Windows
+            # Extract zip and add bin\ to PATH
+            ```
+            
+            ## Quick Start
+            
+            ```bash
+            # Start server
+            eye-server
+            
+            # Start agent
+            eye agent start --server http://localhost:8080 --token TOKEN
+            ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
