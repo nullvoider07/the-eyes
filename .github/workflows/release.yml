@@ -196,7 +196,7 @@ jobs:
   # JOB 4: MACOS BUILD (Intel / x64)
   # ============================================================================
   build-macos-x64:
-    runs-on: macos-13 # Intel Runner (macOS 13 is the last Intel image)
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v4
