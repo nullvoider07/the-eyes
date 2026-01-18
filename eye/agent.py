@@ -341,6 +341,28 @@ class Agent:
             if response.status_code == 200:
                 self.retry_delay = 1
                 result = response.json()
+
+                if 'config' in result:
+                    remote = result['config']
+                    
+                    # 1. Update Interval
+                    new_interval = float(remote.get('interval', self.interval))
+                    if new_interval != self.interval:
+                        print(f"\n[CMD] Interval update: {self.interval}s -> {new_interval}s")
+                        self.interval = new_interval
+                        
+                    # 2. Update Format
+                    new_format = remote.get('format', self.format).lower()
+                    if new_format != self.format:
+                        print(f"\n[CMD] Format update: {self.format} -> {new_format}")
+                        self.format = new_format
+                        
+                    # 3. Update Quality
+                    new_quality = int(remote.get('quality', self.quality))
+                    if new_quality != self.quality:
+                        print(f"\n[CMD] Quality update: {self.quality} -> {new_quality}")
+                        self.quality = new_quality
+
                 size_kb = result.get('size_kb', len(image_data) / 1024)
                 print(f"\r[OK] Frame #{self.frame_id}: {size_kb:.1f} KB ({self.format.upper()})", end="", flush=True)
                 return True
