@@ -161,20 +161,26 @@ class Agent:
         return "test_pattern"
 
     # Wait for Server
-    def wait_for_server(self, timeout: int = 30) -> bool:
+    def wait_for_server(self, timeout: Optional[int] = None) -> bool:
         """Block until server is healthy"""
         print("[INFO] Waiting for server...")
+        attempt = 0
         start_time = time.time()
-        while time.time() - start_time < timeout:
+        while True:
+            if timeout and (time.time() - start_time > timeout):
+                print("[ERROR] Server not reachable (Timeout).")
+                return False
+            attempt += 1
             try:
                 response = requests.get(f"{self.server_url}/health", timeout=2)
                 if response.status_code == 200:
-                    print("[INFO] ✅ Server ready!")
+                    print(f"[INFO] ✅ Server ready! (Connected on attempt {attempt})")
                     return True
             except Exception:
+                pass
+            if attempt % 10 == 0:
+                print(f"[INFO] Still waiting for server... (Attempt {attempt})")
                 time.sleep(2)
-        print("[ERROR] Server not reachable.")
-        return False
     
     # Auto-Stop Check
     def _should_stop(self) -> bool:
