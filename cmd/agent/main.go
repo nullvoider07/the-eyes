@@ -44,7 +44,7 @@ func (a *Agent) waitForServer(timeout time.Duration) error {
 
 	for range ticker.C {
 		if err := a.client.HealthCheck(); err == nil {
-			log.Println("[INFO] ✅ Server ready!")
+			log.Println("[INFO] Server ready!")
 			return nil
 		}
 		if time.Since(start) > timeout {
@@ -83,7 +83,7 @@ func (a *Agent) Start() error {
 	ticker := time.NewTicker(a.interval)
 	defer ticker.Stop()
 
-	log.Println("[INFO] 🚀 Starting capture loop...")
+	log.Println("[INFO] Starting capture loop...")
 
 	for a.running {
 		select {

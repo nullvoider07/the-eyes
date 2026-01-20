@@ -174,7 +174,7 @@ class Agent:
             try:
                 response = requests.get(f"{self.server_url}/health", timeout=2)
                 if response.status_code == 200:
-                    print(f"[INFO] ✅ Server ready! (Connected on attempt {attempt})")
+                    print(f"[INFO] Server ready! (Connected on attempt {attempt})")
                     return True
             except Exception:
                 pass
@@ -394,7 +394,7 @@ class Agent:
             self.stop_time = self.start_time + timedelta(seconds=self.duration)
             print(f"[INFO] Will stop at: {self.stop_time.strftime('%H:%M:%S')}")
         
-        print("[INFO] 🚀 Agent Active.")
+        print("[INFO] Agent Active.")
         return True
     
     # Stop Agent
@@ -403,7 +403,7 @@ class Agent:
         if self.running:
             self.running = False
             elapsed = (datetime.now() - self.start_time).total_seconds() if self.start_time else 0
-            print(f"\n[INFO] ⏹️ Agent stopped")
+            print(f"\n[INFO] Agent stopped")
             print(f"[INFO] Captured {self.frame_id} frames in {elapsed:.1f}s")
 
     # Main Loop
