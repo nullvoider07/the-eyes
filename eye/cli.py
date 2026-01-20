@@ -4,6 +4,10 @@ import os
 import subprocess
 import requests
 import sys
+import platform
+import tempfile
+import shutil
+import stat
 from pathlib import Path
 from eye.agent import Agent
 
@@ -13,6 +17,9 @@ CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
 # Version - Update with each release
 __version__ = "0.1.0"
+
+# GitHub repository
+REPO = "nullvoider07/the-eyes"
 
 # CLI Group
 @click.group()
@@ -114,6 +121,181 @@ def debug():
     except:
         click.echo("[ERROR] Server not running or unreachable", err=True)
 
+# Update Command
+@cli.command()
+@click.option('--check-only', is_flag=True, help='Only check for updates without installing')
+def update(check_only):
+    """Check for updates and install the latest version"""
+    
+    click.echo("Checking for updates...")
+    click.echo(f"Current version: v{__version__}")
+    
+    try:
+        # Get latest release from GitHub
+        release_url = f"https://api.github.com/repos/{REPO}/releases/latest"
+        response = requests.get(release_url, timeout=10)
+        response.raise_for_status()
+        
+        latest_release = response.json()
+        latest_tag = latest_release['tag_name']
+        latest_version = latest_tag.lstrip('v')
+        
+        click.echo(f"Latest version: v{latest_version}")
+        
+        # Compare versions
+        if latest_version == __version__:
+            click.echo(click.style("[OK] You already have the latest version!", fg='green'))
+            return
+        
+        click.echo(click.style(f"[UPDATE] New version available: v{latest_version}", fg='yellow'))
+        
+        if check_only:
+            click.echo("\nTo install the update, run: eye update")
+            return
+        
+        # Confirm update
+        if not click.confirm('\nDo you want to update now?'):
+            click.echo("Update cancelled.")
+            return
+        
+        # Detect platform and architecture
+        os_type = platform.system().lower()
+        machine = platform.machine().lower()
+        
+        # Map platform names
+        if os_type == 'darwin':
+            os_name = 'osx'
+        elif os_type == 'linux':
+            os_name = 'linux'
+        elif os_type == 'windows':
+            os_name = 'win'
+        else:
+            click.echo(f"[ERROR] Unsupported OS: {os_type}", err=True)
+            return
+        
+        # Map architecture
+        if machine in ['x86_64', 'amd64']:
+            arch = 'x64'
+        elif machine in ['arm64', 'aarch64']:
+            arch = 'arm64'
+        elif machine in ['i386', 'i686']:
+            arch = 'x86'
+        else:
+            click.echo(f"[ERROR] Unsupported architecture: {machine}", err=True)
+            return
+        
+        # Construct download URL
+        if os_name == 'win':
+            file_name = f"eye-{latest_version}-{os_name}-{arch}.zip"
+        else:
+            file_name = f"eye-{latest_version}-{os_name}-{arch}.tar.gz"
+        
+        download_url = f"https://github.com/{REPO}/releases/download/{latest_tag}/{file_name}"
+        
+        click.echo(f"\nDownloading {file_name}...")
+        
+        # Download the release
+        download_response = requests.get(download_url, stream=True, timeout=30)
+        download_response.raise_for_status()
+        
+        # Save to temp file
+        temp_dir = tempfile.mkdtemp()
+        temp_file = os.path.join(temp_dir, file_name)
+        
+        with open(temp_file, 'wb') as f:
+            for chunk in download_response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        
+        click.echo("[OK] Download complete")
+        
+        # Extract archive
+        click.echo("Installing update...")
+        
+        if os_name == 'win':
+            import zipfile
+            with zipfile.ZipFile(temp_file, 'r') as zip_ref:
+                zip_ref.extractall(temp_dir)
+        else:
+            import tarfile
+            with tarfile.open(temp_file, 'r:gz') as tar_ref:
+                tar_ref.extractall(temp_dir)
+        
+        # Determine installation directory
+        if os_name == 'win':
+            install_dir = Path(os.environ['LOCALAPPDATA']) / 'Programs' / 'Eye' / 'bin'
+        else:
+            install_dir = Path.home() / '.local' / 'bin'
+        
+        # Find the extracted binaries
+        extracted_bin_dir = Path(temp_dir) / 'bin'
+        
+        if not extracted_bin_dir.exists():
+            click.echo("[ERROR] Binary directory not found in archive", err=True)
+            shutil.rmtree(temp_dir)
+            return
+        
+        # Copy binaries to installation directory
+        install_dir.mkdir(parents=True, exist_ok=True)
+        
+        if os_name == 'win':
+            binaries = ['eye.exe', 'eye-server.exe']
+        else:
+            binaries = ['eye', 'eye-server']
+        
+        for binary in binaries:
+            src = extracted_bin_dir / binary
+            dst = install_dir / binary
+            
+            if src.exists():
+                # On Windows, we might need to handle file locks
+                if os_name == 'win' and dst.exists():
+                    try:
+                        # Rename old binary
+                        old_binary = install_dir / f"{binary}.old"
+                        if old_binary.exists():
+                            old_binary.unlink()
+                        dst.rename(old_binary)
+                    except Exception as e:
+                        click.echo(f"[WARNING] Could not replace {binary}: {e}", err=True)
+                        click.echo("The binary might be in use. Please close all Eye processes and try again.", err=True)
+                        continue
+                
+                shutil.copy2(src, dst)
+                
+                # Make executable on Unix-like systems
+                if os_name != 'win':
+                    os.chmod(dst, os.stat(dst).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+                
+                click.echo(f"[OK] Updated {binary}")
+            else:
+                click.echo(f"[WARNING] {binary} not found in archive", err=True)
+        
+        # Clean up
+        shutil.rmtree(temp_dir)
+        
+        # Remove old binaries on Windows
+        if os_name == 'win':
+            for binary in binaries:
+                old_binary = install_dir / f"{binary}.old"
+                if old_binary.exists():
+                    try:
+                        old_binary.unlink()
+                    except:
+                        pass
+        
+        click.echo("\n" + "=" * 50)
+        click.echo(click.style(f"[OK] Successfully updated to v{latest_version}!", fg='green'))
+        click.echo("=" * 50)
+        click.echo("\nRestart any running Eye processes to use the new version.")
+        
+    except requests.exceptions.RequestException as e:
+        click.echo(f"[ERROR] Network error: {e}", err=True)
+        click.echo("Please check your internet connection and try again.", err=True)
+    except Exception as e:
+        click.echo(f"[ERROR] Update failed: {e}", err=True)
+        import traceback
+        traceback.print_exc()
+
 # Version Command
 @cli.command()
 def version():
@@ -126,7 +308,7 @@ def version():
     click.echo("=" * 50)
     click.echo("")
     click.echo("Components:")
-    click.echo(f"  • Python CLI:  v{__version__}")
+    click.echo(f"  * Python CLI:  v{__version__}")
     
     # Try to get Go server version
     try:
@@ -143,17 +325,17 @@ def version():
             timeout=2
         )
         if result.returncode == 0:
-            click.echo(f"  • Go Server:   {result.stdout.strip()}")
+            click.echo(f"  * Go Server:   {result.stdout.strip()}")
         else:
-            click.echo(f"  • Go Server:   (installed)")
+            click.echo(f"  * Go Server:   (installed)")
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        click.echo(f"  • Go Server:   (not found)")
+        click.echo(f"  * Go Server:   (not found)")
     
     click.echo("")
     click.echo("System Information:")
-    click.echo(f"  • OS:          {platform.system()} {platform.release()}")
-    click.echo(f"  • Architecture: {platform.machine()}")
-    click.echo(f"  • Python:      {sys.version.split()[0]}")
+    click.echo(f"  * OS:          {platform.system()} {platform.release()}")
+    click.echo(f"  * Architecture: {platform.machine()}")
+    click.echo(f"  * Python:      {sys.version.split()[0]}")
     
     # Check dependencies
     click.echo("")
@@ -175,13 +357,15 @@ def version():
                 __import__('yaml')
             else:
                 __import__(module)
-            click.echo(f"  ✅ {description:25} (installed)")
+            click.echo(f"  [OK] {description:25} (installed)")
         except ImportError:
             click.echo(f"  [ERROR] {description:25} (missing)", err=True)
     
     click.echo("")
     click.echo("Documentation:")
     click.echo("  https://github.com/nullvoider07/the-eyes")
+    click.echo("")
+    click.echo("To check for updates, run: eye update --check-only")
     click.echo("")
 
 # Main Entry Point
