@@ -262,7 +262,7 @@ jobs:
       - name: Build Python CLI
         run: |
           pyinstaller --onefile `
-            --name eye.exe `
+            --name eye `
             --add-data "eye;eye" `
             --hidden-import=mss `
             --hidden-import=PIL `
