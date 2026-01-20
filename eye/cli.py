@@ -33,7 +33,7 @@ def server():
 @click.option('--token', help='Auth token')
 def start_server(port, token):
     """Start Go server"""
-    click.echo(f"🚀 Starting server on port {port}")
+    click.echo(f"[START] Starting server on port {port}")
     
     env = os.environ.copy()
     env['EYE_PORT'] = str(port)
@@ -49,7 +49,7 @@ def start_server(port, token):
     try:
         subprocess.run([server_bin], env=env, check=True)
     except FileNotFoundError:
-        click.echo("❌ Error: 'eye-server' binary not found. Run: go build -o bin/eye-server cmd/server/main.go")
+        click.echo("[ERROR] 'eye-server' binary not found. Run: go build -o bin/eye-server cmd/server/main.go", err=True)
 
 # Agent Commands
 @cli.group()
@@ -75,10 +75,10 @@ def start_agent(server, token, interval, format, quality, duration, max_frames, 
         import mss
         from PIL import Image
     except ImportError:
-        click.echo("❌ Missing dependencies. Run: pip install mss pillow requests")
+        click.echo("Missing dependencies. Run: pip install mss pillow requests", err=True)
         sys.exit(1)
 
-    click.echo(f"🚀 Starting Eye Agent (Python) → {server}")
+    click.echo(f"[START] Starting Eye Agent (Python) -> {server}")
     click.echo(f"   Format: {format.upper()}")
     if format == 'jpeg':
         click.echo(f"   Quality: {quality}/100")
@@ -112,7 +112,7 @@ def debug():
         r = requests.get('http://localhost:8080/debug', timeout=2)
         click.echo(yaml.dump(r.json()))
     except:
-        click.echo("❌ Server not running or unreachable")
+        click.echo("[ERROR] Server not running or unreachable", err=True)
 
 # Version Command
 @cli.command()
@@ -177,7 +177,7 @@ def version():
                 __import__(module)
             click.echo(f"  ✅ {description:25} (installed)")
         except ImportError:
-            click.echo(f"  ❌ {description:25} (missing)")
+            click.echo(f"  [ERROR] {description:25} (missing)", err=True)
     
     click.echo("")
     click.echo("Documentation:")
