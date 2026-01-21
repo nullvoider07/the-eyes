@@ -10,6 +10,20 @@ $REPO = "nullvoider07/the-eyes"
 $SERVER_BINARY = "eye-server.exe"
 $CLI_BINARY = "eye.exe"
 
+if (Get-Command "eye" -ErrorAction SilentlyContinue) {
+    Write-Host "⚠️  Eye Vision Capture Tool is already installed." -ForegroundColor Yellow
+    Write-Host "💡 To update to the latest version, simply run:" -ForegroundColor Cyan
+    Write-Host "   eye update" -ForegroundColor White
+    Write-Host ""
+    
+    $Confirmation = Read-Host "Do you still want to force a reinstall? [y/N]"
+    if ($Confirmation -notmatch "^[Yy]$") {
+        Write-Host "Installation cancelled." -ForegroundColor Gray
+        exit 0
+    }
+    Write-Host "Proceeding with reinstall..." -ForegroundColor Gray
+}
+
 Write-Host "=========================================" -ForegroundColor Cyan
 Write-Host "Eye Vision Capture Tool - Installer" -ForegroundColor Cyan
 Write-Host "=========================================" -ForegroundColor Cyan

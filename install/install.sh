@@ -12,6 +12,23 @@ SERVER_BINARY="eye-server"
 CLI_BINARY="eye"
 
 # ============================================================================
+# Check Existing Installation
+# ============================================================================
+if command -v "$CLI_BINARY" &> /dev/null; then
+    echo "⚠️  Eye Vision Capture Tool is already installed."
+    echo "💡 To update to the latest version, simply run:"
+    echo "   $CLI_BINARY update"
+    echo ""
+    read -p "Do you still want to force a reinstall? [y/N] " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Installation cancelled."
+        exit 0
+    fi
+    echo "Proceeding with reinstall..."
+fi
+
+# ============================================================================
 # Detect OS
 # ============================================================================
 OS="$(uname -s)"
