@@ -33,6 +33,7 @@
 12. [API Reference](#api-reference)
 13. [Python SDK](#python-sdk)
 14. [Troubleshooting](#troubleshooting)
+15. [About This Project](#about-this-project)
 
 ---
 
@@ -1039,10 +1040,6 @@ setup_logging(level="DEBUG", log_file=Path("/tmp/eye.log"))
 ```
 ---
 
-## License
-
-This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) file for details.
-
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/nullvoider07/the-eyes/issues)
@@ -1050,7 +1047,7 @@ This project is licensed under the GPL-3.0 License - see the [LICENSE](LICENSE) 
 
 ---
 
-**Last Updated:** January 21, 2026
+**Last Updated:** January 21, 2026  
 **Developer:** Kartik (NullVoider)
 
 ---
