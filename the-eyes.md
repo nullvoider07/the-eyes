@@ -519,6 +519,7 @@ eye uninstall -y
 
 # Complete purge (removes config files and data)
 eye uninstall --purge
+```
 
 #### Health Check
 
