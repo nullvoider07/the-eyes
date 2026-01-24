@@ -73,7 +73,7 @@ def start_server(port, token):
         click.echo("[ERROR] 'eye-server' binary not found!", err=True)
         click.echo("", err=True)
         click.echo("Build the Rust server with:", err=True)
-        click.echo("  cd /path/to/the-eyes-rust", err=True)
+        click.echo("  cd /path/to/the-eyes", err=True)
         click.echo("  cargo build --release -p eye-server", err=True)
         click.echo("", err=True)
         click.echo("Or install system-wide with:", err=True)
@@ -211,9 +211,9 @@ def update(check_only):
         
         # Construct download URL for RUST binaries
         if os_name == 'win':
-            file_name = f"eye-rust-{latest_version}-{os_name}-{arch}.zip"
+            file_name = f"eye-{latest_version}-{os_name}-{arch}.zip"
         else:
-            file_name = f"eye-rust-{latest_version}-{os_name}-{arch}.tar.gz"
+            file_name = f"eye-{latest_version}-{os_name}-{arch}.tar.gz"
         
         download_url = f"https://github.com/{REPO}/releases/download/{latest_tag}/{file_name}"
         
