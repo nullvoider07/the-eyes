@@ -263,9 +263,9 @@ def update(check_only):
         install_dir.mkdir(parents=True, exist_ok=True)
         
         if os_name == 'win':
-            binaries = ['eye-server.exe', 'eye-agent.exe']
+            binaries = ['eye.exe', 'eye-server.exe', 'eye-agent.exe']
         else:
-            binaries = ['eye-server', 'eye-agent']
+            binaries = ['eye', 'eye-server', 'eye-agent']
         
         for binary in binaries:
             src = extracted_bin_dir / binary
