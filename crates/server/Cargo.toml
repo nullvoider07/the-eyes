@@ -1,0 +1,22 @@
+[package]
+name = "eye-server"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "eye-server"
+path = "src/main.rs"
+
+[dependencies]
+storage = { path = "../storage" }
+auth = { path = "../auth" }
+tokio = { workspace = true }
+axum = { workspace = true, features = ["multipart"] }
+tower = { workspace = true }
+tower-http = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+chrono = { workspace = true }

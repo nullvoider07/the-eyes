@@ -1,0 +1,17 @@
+[package]
+name = "eye-agent"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "eye-agent"
+path = "src/main.rs"
+
+[dependencies]
+capture = { path = "../capture" }
+transport = { path = "../transport" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+image = { workspace = true }

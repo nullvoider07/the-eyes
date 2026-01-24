@@ -6,7 +6,7 @@ set -e
 # ============================================================================
 # Configuration
 # ============================================================================
-REPO="nullvoider07/the-eyes"
+REPO="nullvoider07/the-eyes-rust"
 INSTALL_DIR="$HOME/.local/bin"
 SERVER_BINARY="eye-server"
 CLI_BINARY="eye"

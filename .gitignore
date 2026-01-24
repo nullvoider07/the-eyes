@@ -1,0 +1,12 @@
+/target
+/bin
+eye-server
+eye-agent
+**/*.exe
+**/*.dll
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+dist/
+*.egg-info/
