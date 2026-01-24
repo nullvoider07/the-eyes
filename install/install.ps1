@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 # ============================================================================
 # Configuration
 # ============================================================================
-$REPO = "nullvoider07/the-eyes-rust"
+$REPO = "nullvoider07/the-eyes"
 $SERVER_BINARY = "eye-server.exe"
 $CLI_BINARY = "eye.exe"
 
