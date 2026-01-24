@@ -38,6 +38,8 @@ help:
 	@echo "  make build         - Build Rust binaries (debug mode)"
 	@echo "  make release       - Build optimized release binaries"
 	@echo "  make install       - Install binaries and Python CLI system-wide"
+	@echo "  make uninstall     - Uninstall Eye from the system"
+	@echo "  make uninstall-purge - Uninstall Eye including config files"
 	@echo "  make test          - Run all tests"
 	@echo "  make clean         - Clean build artifacts"
 	@echo "  make deps          - Install Rust and Python dependencies"
@@ -107,6 +109,39 @@ dev-install: build python-cli
 	@echo "$(GREEN)Installing Eye (development mode)...$(NC)"
 	@$(PIP) install -e .
 	@echo "$(GREEN)✅ Eye installed in dev mode$(NC)"
+
+# Uninstall Eye from the system
+uninstall:
+	@echo "$(YELLOW)Uninstalling Eye...$(NC)"
+	@echo ""
+	@echo "This will remove:"
+	@echo "  - Rust binaries (eye-server, eye-agent)"
+	@echo "  - Python CLI package"
+	@echo ""
+	@if command -v eye >/dev/null 2>&1; then \
+		eye uninstall; \
+	else \
+		echo "$(YELLOW)Eye CLI not found in PATH. Removing binaries manually...$(NC)"; \
+		rm -f /usr/local/bin/eye-server /usr/local/bin/eye-agent; \
+		rm -f $(HOME)/.local/bin/eye-server $(HOME)/.local/bin/eye-agent; \
+		$(PIP) uninstall -y eye-capture 2>/dev/null || true; \
+		echo "$(GREEN)✅ Uninstall complete$(NC)"; \
+	fi
+
+# Complete uninstall including config files
+uninstall-purge:
+	@echo "$(YELLOW)Uninstalling Eye (with configuration)...$(NC)"
+	@echo ""
+	@if command -v eye >/dev/null 2>&1; then \
+		eye uninstall --purge -y; \
+	else \
+		echo "$(YELLOW)Eye CLI not found. Removing manually...$(NC)"; \
+		rm -f /usr/local/bin/eye-server /usr/local/bin/eye-agent; \
+		rm -f $(HOME)/.local/bin/eye-server $(HOME)/.local/bin/eye-agent; \
+		rm -rf $(HOME)/.eye; \
+		$(PIP) uninstall -y eye-capture 2>/dev/null || true; \
+		echo "$(GREEN)✅ Complete uninstall finished$(NC)"; \
+	fi
 
 # Run tests
 test: test-rust test-python

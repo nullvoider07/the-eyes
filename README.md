@@ -1,6 +1,6 @@
 # The Eye - Vision Capture Tool
 
-**Version:** 0.1.2  
+**Version:** 0.2.0  
 **Last Updated:** January 2026  
 **Developer:** Kartik (NullVoider)
 
@@ -43,7 +43,7 @@
 
 The Eye consists of two main components:
 
-- **Eye Server** (Go): High-performance HTTP server that receives, stores, and serves captured frames
+- **Eye Server** (Rust): High-performance HTTP server that receives, stores, and serves captured frames
 - **Eye Agent** (Python): Cross-platform screen capture client that continuously captures and uploads screenshots
 
 ### Use Cases
@@ -78,7 +78,7 @@ The Eye consists of two main components:
 
 ### Server Capabilities
 
-The Eye Server is a lightweight, high-performance Go application that manages frame storage and distribution.
+The Eye Server is a lightweight, high-performance Rust application that manages frame storage and distribution.
 
 #### Core Functions
 
@@ -216,7 +216,7 @@ Send real-time notifications for:
 ```
 ┌─────────────────┐
 │   Eye Server    │
-│   (Go Binary)   │
+│   (Rust Binary)   │
 │                 │
 │  - HTTP Server  │
 │  - Memory Store │
@@ -315,7 +315,7 @@ This will:
 eye server start --port 8080 --token my-secret-token
 ```
 
-Or use the Go binary directly:
+Or use the Rust binary directly:
 
 ```bash
 export EYE_PORT=8080
@@ -505,6 +505,20 @@ eye update --check-only
 # Install latest version
 eye update
 ```
+
+#### Uninstall Eye
+
+Remove the tool and its components from your system.
+
+```bash
+# Standard uninstall (interactive)
+eye uninstall
+
+# Force uninstall (no confirmation)
+eye uninstall -y
+
+# Complete purge (removes config files and data)
+eye uninstall --purge
 
 #### Health Check
 

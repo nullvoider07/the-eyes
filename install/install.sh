@@ -184,6 +184,10 @@ echo ""
 echo "  # Terminal 2: Start agent"
 echo "  eye agent start --server http://localhost:8080 --token mytoken"
 echo ""
+echo "Uninstallation:"
+echo "  To remove Eye from your system:"
+echo "  eye uninstall"
+echo ""
 
 if [ "$PATH_UPDATED" = true ]; then
     echo "⚠️  PATH updated. Apply changes with:"

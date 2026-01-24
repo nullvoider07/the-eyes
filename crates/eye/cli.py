@@ -16,7 +16,7 @@ CONFIG_DIR = Path.home() / ".eye"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
 # Version - Update with each release
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 # GitHub repository
 REPO = "nullvoider07/the-eyes"
@@ -319,6 +319,245 @@ def update(check_only):
         click.echo(f"[ERROR] Update failed: {e}", err=True)
         import traceback
         traceback.print_exc()
+
+@cli.command()
+@click.option('--purge', is_flag=True, help='Also remove configuration files and data')
+@click.option('--yes', '-y', is_flag=True, help='Skip confirmation prompts')
+def uninstall(purge, yes):
+    """Uninstall Eye Vision Capture Tool from your system"""
+    
+    click.echo("=" * 60)
+    click.echo("Eye Vision Capture Tool - Uninstall")
+    click.echo("=" * 60)
+    click.echo("")
+    
+    # Detect OS
+    os_type = platform.system().lower()
+    
+    # Define paths to check
+    paths_to_remove = []
+    
+    # 1. Rust binaries
+    if os_type == 'windows':
+        binary_locations = [
+            Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Eye' / 'bin',
+            Path.home() / '.local' / 'bin',
+        ]
+        binary_names = ['eye-server.exe', 'eye-agent.exe']
+    else:
+        binary_locations = [
+            Path('/usr/local/bin'),
+            Path.home() / '.local' / 'bin',
+            Path('./bin'),
+            Path('./target/release'),
+        ]
+        binary_names = ['eye-server', 'eye-agent']
+    
+    # Find installed binaries
+    found_binaries = []
+    for location in binary_locations:
+        if location.exists():
+            for binary in binary_names:
+                binary_path = location / binary
+                if binary_path.exists():
+                    found_binaries.append(binary_path)
+                    paths_to_remove.append(binary_path)
+                
+                # Also check for .old versions
+                old_binary = location / f"{binary}.old"
+                if old_binary.exists():
+                    paths_to_remove.append(old_binary)
+    
+    # 2. Python package
+    python_package_info = None
+    try:
+        import pkg_resources
+        try:
+            dist = pkg_resources.get_distribution('eye-capture')
+            python_package_info = {
+                'name': dist.project_name,
+                'version': dist.version,
+                'location': dist.location
+            }
+        except pkg_resources.DistributionNotFound:
+            pass
+    except ImportError:
+        pass
+    
+    # 3. Configuration files (only if --purge)
+    config_paths = []
+    if purge:
+        config_dir = Path.home() / '.eye'
+        if config_dir.exists():
+            config_paths.append(config_dir)
+    
+    # Display what will be removed
+    click.echo("The following components will be removed:")
+    click.echo("")
+    
+    if found_binaries:
+        click.echo(click.style("Rust Binaries:", fg='yellow', bold=True))
+        for binary in found_binaries:
+            click.echo(f"  - {binary}")
+        click.echo("")
+    else:
+        click.echo(click.style("Rust Binaries:", fg='yellow', bold=True))
+        click.echo("  - None found")
+        click.echo("")
+    
+    if python_package_info:
+        click.echo(click.style("Python Package:", fg='yellow', bold=True))
+        click.echo(f"  - {python_package_info['name']} v{python_package_info['version']}")
+        click.echo(f"    Location: {python_package_info['location']}")
+        click.echo("")
+    else:
+        click.echo(click.style("Python Package:", fg='yellow', bold=True))
+        click.echo("  - Not installed via pip")
+        click.echo("")
+    
+    if config_paths:
+        click.echo(click.style("Configuration & Data:", fg='yellow', bold=True))
+        for path in config_paths:
+            click.echo(f"  - {path}")
+        click.echo("")
+    
+    # Calculate total size
+    total_size = 0
+    for path in paths_to_remove + config_paths:
+        if path.exists():
+            if path.is_file():
+                total_size += path.stat().st_size
+            elif path.is_dir():
+                total_size += sum(f.stat().st_size for f in path.rglob('*') if f.is_file())
+    
+    if total_size > 0:
+        size_mb = total_size / (1024 * 1024)
+        click.echo(f"Total disk space to be freed: {size_mb:.2f} MB")
+        click.echo("")
+    
+    # Nothing to remove
+    if not found_binaries and not python_package_info and not config_paths:
+        click.echo(click.style("✓ Eye is not installed on this system", fg='green'))
+        return
+    
+    # Confirm removal
+    if not yes:
+        click.echo(click.style("⚠ This action cannot be undone!", fg='red', bold=True))
+        if not click.confirm('Do you want to continue?'):
+            click.echo("\nUninstall cancelled.")
+            return
+    
+    click.echo("")
+    click.echo("Uninstalling...")
+    click.echo("")
+    
+    # Track what was removed
+    removed = []
+    failed = []
+    
+    # 1. Remove Rust binaries
+    for binary_path in paths_to_remove:
+        try:
+            if binary_path.exists():
+                binary_path.unlink()
+                removed.append(str(binary_path))
+                click.echo(f"  ✓ Removed: {binary_path}")
+        except PermissionError:
+            failed.append((str(binary_path), "Permission denied"))
+            click.echo(click.style(f"  ✗ Failed: {binary_path} (Permission denied)", fg='red'))
+        except Exception as e:
+            failed.append((str(binary_path), str(e)))
+            click.echo(click.style(f"  ✗ Failed: {binary_path} ({e})", fg='red'))
+    
+    # 2. Uninstall Python package
+    if python_package_info:
+        try:
+            click.echo(f"\n  Uninstalling Python package: {python_package_info['name']}...")
+            import subprocess
+            result = subprocess.run(
+                [sys.executable, '-m', 'pip', 'uninstall', '-y', 'eye-capture'],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                removed.append(f"Python package: {python_package_info['name']}")
+                click.echo(f"  ✓ Uninstalled Python package")
+            else:
+                failed.append(("Python package", result.stderr))
+                click.echo(click.style(f"  ✗ Failed to uninstall Python package", fg='red'))
+        except Exception as e:
+            failed.append(("Python package", str(e)))
+            click.echo(click.style(f"  ✗ Failed: {e}", fg='red'))
+    
+    # 3. Remove configuration (if --purge)
+    if config_paths:
+        click.echo("")
+        for config_path in config_paths:
+            try:
+                if config_path.exists():
+                    if config_path.is_dir():
+                        shutil.rmtree(config_path)
+                    else:
+                        config_path.unlink()
+                    removed.append(str(config_path))
+                    click.echo(f"  ✓ Removed: {config_path}")
+            except Exception as e:
+                failed.append((str(config_path), str(e)))
+                click.echo(click.style(f"  ✗ Failed: {config_path} ({e})", fg='red'))
+    
+    # 4. Remove empty parent directories (Windows)
+    if os_type == 'windows':
+        eye_dir = Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Eye'
+        try:
+            if eye_dir.exists() and not any(eye_dir.iterdir()):
+                eye_dir.rmdir()
+                click.echo(f"  ✓ Removed empty directory: {eye_dir}")
+        except Exception:
+            pass
+    
+    # Summary
+    click.echo("")
+    click.echo("=" * 60)
+    
+    if removed and not failed:
+        click.echo(click.style("✓ Uninstall completed successfully!", fg='green', bold=True))
+        click.echo("")
+        click.echo(f"Removed {len(removed)} item(s):")
+        for item in removed[:5]:
+            click.echo(f"  - {item}")
+        if len(removed) > 5:
+            click.echo(f"  ... and {len(removed) - 5} more")
+    
+    elif removed and failed:
+        click.echo(click.style("⚠ Uninstall partially completed", fg='yellow', bold=True))
+        click.echo("")
+        click.echo(f"Successfully removed: {len(removed)} item(s)")
+        click.echo(f"Failed to remove: {len(failed)} item(s)")
+        click.echo("")
+        click.echo("Failed items:")
+        for path, error in failed:
+            click.echo(f"  - {path}: {error}")
+        click.echo("")
+        if os_type != 'windows':
+            click.echo("Tip: Try running with sudo for system-wide installations:")
+            click.echo("  sudo eye uninstall -y")
+    
+    elif not removed and failed:
+        click.echo(click.style("✗ Uninstall failed", fg='red', bold=True))
+        click.echo("")
+        for path, error in failed:
+            click.echo(f"  - {path}: {error}")
+    
+    else:
+        click.echo(click.style("✓ Nothing to remove", fg='green'))
+    
+    click.echo("=" * 60)
+    
+    # Offer feedback
+    if removed or failed:
+        click.echo("")
+        click.echo("Thank you for using Eye Vision Capture Tool!")
+        click.echo("I'd appreciate your feedback: https://github.com/nullvoider07/the-eyes/issues")
 
 # Version Command
 @cli.command()

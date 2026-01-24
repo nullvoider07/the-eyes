@@ -171,6 +171,10 @@ Write-Host ""
 Write-Host "  # Terminal 2: Start agent"
 Write-Host "  eye agent start --server http://localhost:8080 --token mytoken" -ForegroundColor Yellow
 Write-Host ""
+Write-Host "Uninstallation:"
+Write-Host "  To remove Eye from your system:"
+Write-Host "  eye uninstall" -ForegroundColor Yellow
+Write-Host ""
 
 if ($PATH_UPDATED) {
     Write-Host "✅ Path updated. You may need to restart your terminal." -ForegroundColor Green

@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 # Setup configuration for the eye-capture package
 setup(
     name="eye-capture",
-    version="0.1.2",
+    version="0.2.0",
     description="AI-native vision capture tool for CUA workflows",
     author="Your Name",
     packages=find_packages(),
