@@ -343,7 +343,7 @@ def uninstall(purge, yes):
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Eye' / 'bin',
             Path.home() / '.local' / 'bin',
         ]
-        binary_names = ['eye-server.exe', 'eye-agent.exe']
+        binary_names = ['eye.exe', 'eye-server.exe', 'eye-agent.exe']
     else:
         binary_locations = [
             Path('/usr/local/bin'),
@@ -351,7 +351,7 @@ def uninstall(purge, yes):
             Path('./bin'),
             Path('./target/release'),
         ]
-        binary_names = ['eye-server', 'eye-agent']
+        binary_names = ['eye', 'eye-server', 'eye-agent']
     
     # Find installed binaries
     found_binaries = []
