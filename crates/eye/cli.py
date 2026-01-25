@@ -533,6 +533,64 @@ def uninstall(purge, yes):
         except Exception:
             pass
     
+    # 5. Clean up PATH environment variable (Windows Only)
+    if os_type == 'windows':
+        try:
+            import winreg  # type: ignore
+            
+            # Open the User Environment Key
+            key = winreg.OpenKey(  # type: ignore
+                winreg.HKEY_CURRENT_USER,  # type: ignore
+                'Environment', 
+                0, 
+                winreg.KEY_ALL_ACCESS  # type: ignore
+            )
+            
+            # Read the current PATH
+            try:
+                path_value, _ = winreg.QueryValueEx(key, 'Path')  # type: ignore
+            except FileNotFoundError:
+                path_value = ""
+            
+            # Define the path fragment to look for (case-insensitive check)
+            eye_install_fragment = str(Path('Programs/Eye/bin')).lower()
+            
+            # Filter the paths
+            new_paths = []
+            changed = False
+            
+            if path_value:
+                for part in path_value.split(';'):
+                    if eye_install_fragment in part.lower().replace('/', '\\'):
+                        click.echo(f"  ✓ Removing from PATH: {part}")
+                        changed = True
+                    elif part.strip():
+                        new_paths.append(part)
+            
+            # Save back if changed
+            if changed:
+                new_path_str = ';'.join(new_paths)
+                winreg.SetValueEx(key, 'Path', 0, winreg.REG_EXPAND_SZ, new_path_str)  # type: ignore
+                click.echo("  ✓ Updated Windows PATH variable")
+                # Notify the system about the environment variable change
+                try:
+                    import ctypes
+                    HWND_BROADCAST = 0xFFFF
+                    WM_SETTINGCHANGE = 0x001A
+                    SMTO_ABORTIFHUNG = 0x0002
+                    result = ctypes.c_long()
+                    ctypes.windll.user32.SendMessageTimeoutW(  # type: ignore
+                        HWND_BROADCAST, WM_SETTINGCHANGE, 0, u'Environment',
+                        SMTO_ABORTIFHUNG, 5000, ctypes.byref(result)
+                    )
+                except:
+                    pass
+                    
+            winreg.CloseKey(key)  # type: ignore
+            
+        except Exception as e:
+            click.echo(click.style(f"  ! Warning: Could not remove from PATH: {e}", fg='yellow'))
+
     # Summary
     click.echo("")
     click.echo("=" * 60)
