@@ -463,8 +463,27 @@ def uninstall(purge, yes):
                 removed.append(str(binary_path))
                 click.echo(f"  ✓ Removed: {binary_path}")
         except PermissionError:
-            failed.append((str(binary_path), "Permission denied"))
-            click.echo(click.style(f"  ✗ Failed: {binary_path} (Permission denied)", fg='red'))
+            if os_type == 'windows':
+                try:
+                    temp_path = binary_path.with_suffix('.delete_me')
+                    if temp_path.exists():
+                        try: temp_path.unlink()
+                        except: pass
+                    
+                    binary_path.rename(temp_path)
+                    
+                    cmd = f'cmd /c ping 127.0.0.1 -n 3 > nul & del "{temp_path}"'
+                    subprocess.Popen(cmd, shell=True, creationflags=subprocess.CREATE_NO_WINDOW if sys.platform=='win32' else 0)
+                    
+                    removed.append(str(binary_path))
+                    click.echo(f"  ✓ Removed: {binary_path} (Scheduled for deletion)")
+                    continue
+                except Exception as e:
+                    pass
+
+            failed.append((str(binary_path), "Permission denied (File in use)"))
+            click.echo(click.style(f"  ✗ Failed: {binary_path} (File in use)", fg='red'))
+            
         except Exception as e:
             failed.append((str(binary_path), str(e)))
             click.echo(click.style(f"  ✗ Failed: {binary_path} ({e})", fg='red'))
@@ -473,7 +492,6 @@ def uninstall(purge, yes):
     if python_package_info:
         try:
             click.echo(f"\n  Uninstalling Python package: {python_package_info['name']}...")
-            import subprocess
             result = subprocess.run(
                 [sys.executable, '-m', 'pip', 'uninstall', '-y', 'eye-capture'],
                 capture_output=True,
