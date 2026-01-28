@@ -16,7 +16,7 @@ CONFIG_DIR = Path.home() / ".eye"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
 # Version - Update with each release
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 # GitHub repository
 REPO = "nullvoider07/the-eyes"
