@@ -139,7 +139,7 @@ async fn admin_config_handler(
         validated.quality = 75;
     }
     validated.format = validated.format.to_lowercase();
-    const SUPPORTED_FORMATS: &[&str] = &["png", "jpeg", "jpg", "webp", "bmp", "tiff"]
+    const SUPPORTED_FORMATS: &[&str] = &["png", "jpeg", "jpg", "webp", "bmp", "tiff"];
     if !SUPPORTED_FORMATS.contains(&validated.format.as_str()) {
         info!("Invalid format '{}', defaulting to PNG", validated.format);
         validated.format = "png".to_string();
