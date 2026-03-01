@@ -6,7 +6,7 @@ use std::env;
 use std::time::Duration;
 use tokio::signal;
 use tokio::time::interval;
-use tracing::{error, info};
+use tracing::{error, info, warn};
 use transport::Client;
 
 // Agent structure encapsulating capture and upload logic
@@ -47,7 +47,16 @@ impl Agent {
             ticker.tick().await;
 
             if self.client.health_check().await.is_ok() {
-                info!("Server ready!");
+                info!("Server ready! Registering agent...");
+
+                // Claim the server's single connection slot.
+                // Returns an error if another agent is already connected.
+                self.client
+                    .connect()
+                    .await
+                    .context("Failed to register with server")?;
+
+                info!("Agent registered — connection established (1:1)");
                 return Ok(());
             }
 
@@ -102,11 +111,18 @@ impl Agent {
                     }
                 }
                 _ = &mut ctrl_c => {
-                    info!("Stopping...");
+                    info!("Stop signal received — disconnecting...");
                     self.running = false;
                     break;
                 }
             }
+        }
+
+        if let Err(e) = self.client.disconnect().await {
+            warn!("Failed to disconnect cleanly: {}. \
+                The server slot will remain occupied until the server is restarted.", e);
+        } else {
+            info!("Disconnected from server");
         }
 
         Ok(())

@@ -76,6 +76,32 @@ impl MemoryStore {
         Ok(frame.clone())
     }
 
+    // Retrieve a single frame by its ID
+    pub async fn get_by_id(&self, id: i64) -> Result<Frame> {
+        let frames = self.frames.read().await;
+
+        frames
+            .iter()
+            .find(|f| f.id == id)
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("frame {} not found", id))
+    }
+
+    // Retrieve all frames whose timestamp falls within [from, to] (inclusive)
+    pub async fn get_in_range(
+        &self,
+        from: DateTime<Utc>,
+        to: DateTime<Utc>,
+    ) -> Vec<Frame> {
+        let frames = self.frames.read().await;
+
+        frames
+            .iter()
+            .filter(|f| f.timestamp >= from && f.timestamp <= to)
+            .cloned()
+            .collect()
+    }
+
     // List all stored frames
     pub async fn list(&self) -> Vec<Frame> {
         let frames = self.frames.read().await;
@@ -94,7 +120,7 @@ impl DiskStore {
         fs::create_dir_all(&base_path)
             .await
             .context("Failed to create storage directory")?;
-        
+
         Ok(Self { base_path })
     }
 
@@ -131,7 +157,7 @@ impl Manager {
         disk_path: Option<PathBuf>,
     ) -> Result<Self> {
         let memory = MemoryStore::new(memory_size);
-        
+
         let disk = match &mode {
             StorageMode::Disk | StorageMode::Hybrid => {
                 let path = disk_path.context("Disk path required for disk/hybrid mode")?;
@@ -180,7 +206,7 @@ mod tests {
     #[tokio::test]
     async fn test_memory_store() {
         let store = MemoryStore::new(10);
-        
+
         let frame = Frame {
             id: 1,
             data: vec![1, 2, 3],
@@ -190,7 +216,50 @@ mod tests {
 
         store.store(frame.clone()).await.unwrap();
         let retrieved = store.get_latest().await.unwrap();
-        
         assert_eq!(retrieved.id, frame.id);
+    }
+
+    #[tokio::test]
+    async fn test_get_by_id() {
+        let store = MemoryStore::new(10);
+
+        for i in 1..=3i64 {
+            store.store(Frame {
+                id: i,
+                data: vec![i as u8],
+                timestamp: Utc::now(),
+                metadata: HashMap::new(),
+            }).await.unwrap();
+        }
+
+        let frame = store.get_by_id(2).await.unwrap();
+        assert_eq!(frame.id, 2);
+
+        assert!(store.get_by_id(99).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_in_range() {
+        use chrono::Duration;
+
+        let store = MemoryStore::new(10);
+        let base = Utc::now();
+
+        for i in 0..5i64 {
+            store.store(Frame {
+                id: i,
+                data: vec![i as u8],
+                timestamp: base + Duration::seconds(i * 10),
+                metadata: HashMap::new(),
+            }).await.unwrap();
+        }
+
+        // Frames at t+10s, t+20s, t+30s — IDs 1, 2, 3
+        let from = base + Duration::seconds(10);
+        let to   = base + Duration::seconds(30);
+        let results = store.get_in_range(from, to).await;
+
+        assert_eq!(results.len(), 3);
+        assert!(results.iter().all(|f| f.id >= 1 && f.id <= 3));
     }
 }

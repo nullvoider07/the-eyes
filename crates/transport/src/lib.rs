@@ -37,7 +37,7 @@ pub struct AgentConfig {
     pub quality: i32,
 }
 
-// Client for communicating with the server
+// Client for communicating with the server (1:1 model — one client per server)
 pub struct Client {
     server_url: String,
     token: String,
@@ -59,6 +59,62 @@ impl Client {
         }
     }
 
+    // Build a request with the optional auth header applied
+    fn with_auth(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if !self.token.is_empty() {
+            request.header("Authorization", format!("Bearer {}", self.token))
+        } else {
+            request
+        }
+    }
+
+    // Register this agent with the server, claiming the single connection slot.
+    // Returns an error if another agent is already connected (HTTP 409).
+    pub async fn connect(&self) -> Result<()> {
+        let url = format!("{}/connect", self.server_url);
+
+        let response = self
+            .with_auth(self.client.post(&url))
+            .send()
+            .await
+            .context("Failed to send connect request")?;
+
+        if response.status() == reqwest::StatusCode::CONFLICT {
+            anyhow::bail!(
+                "Server already has an agent connected. \
+                 This server operates in 1:1 mode — only one agent is allowed at a time."
+            );
+        }
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Connect failed: {} - {}", status, body);
+        }
+
+        Ok(())
+    }
+
+    // Unregister this agent from the server, freeing the connection slot.
+    // This is best-effort — errors are logged but not fatal.
+    pub async fn disconnect(&self) -> Result<()> {
+        let url = format!("{}/disconnect", self.server_url);
+
+        let response = self
+            .with_auth(self.client.post(&url))
+            .send()
+            .await
+            .context("Failed to send disconnect request")?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("Disconnect failed: {} - {}", status, body);
+        }
+
+        Ok(())
+    }
+
     // Upload a frame to the server
     pub async fn upload_frame(&self, frame_id: i64, data: Vec<u8>) -> Result<serde_json::Value> {
         let url = format!("{}/upload", self.server_url);
@@ -67,16 +123,8 @@ impl Client {
             .part("image", multipart::Part::bytes(data).file_name("frame.png"))
             .text("frame_id", frame_id.to_string());
 
-        let mut request = self.client
-            .post(&url)
-            .multipart(form);
-
-        // Only add auth header if token is not empty
-        if !self.token.is_empty() {
-            request = request.header("Authorization", format!("Bearer {}", self.token));
-        }
-
-        let response = request
+        let response = self
+            .with_auth(self.client.post(&url).multipart(form))
             .send()
             .await
             .context("Failed to send upload request")?;
@@ -87,7 +135,8 @@ impl Client {
             anyhow::bail!("Upload failed: {} - {}", status, body);
         }
 
-        let json = response.json::<serde_json::Value>()
+        let json = response
+            .json::<serde_json::Value>()
             .await
             .context("Failed to parse response")?;
 
@@ -98,7 +147,8 @@ impl Client {
     pub async fn health_check(&self) -> Result<()> {
         let url = format!("{}/health", self.server_url);
 
-        let response = self.client
+        let response = self
+            .client
             .get(&url)
             .send()
             .await
@@ -112,8 +162,7 @@ impl Client {
     }
 }
 
-pub struct WebSocketServer {
-}
+pub struct WebSocketServer {}
 
 impl WebSocketServer {
     pub fn new() -> Self {

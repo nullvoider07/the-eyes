@@ -69,6 +69,8 @@ class Agent:
             self.server_url = self.detect_mediator()
             
         self.upload_endpoint = f"{self.server_url}/upload"
+        self.connect_endpoint = f"{self.server_url}/connect"
+        self.disconnect_endpoint = f"{self.server_url}/disconnect"
         
         print(f"[INFO] Eye Agent initializing on {self.os_type}...")
         print(f"[INFO] Target: {self.upload_endpoint}")
@@ -94,6 +96,12 @@ class Agent:
         """Handle stop signals gracefully"""
         print("\n[INFO] Stop signal received...")
         self.stop()
+    
+    def _auth_headers(self) -> dict:
+        """Return authorization headers if a token is set"""
+        if self.token:
+            return {'Authorization': f'Bearer {self.token}'}
+        return {}
     
     # Mediator Detection
     def detect_mediator(self) -> str:
@@ -182,6 +190,55 @@ class Agent:
                 print(f"[INFO] Still waiting for server... (Attempt {attempt})")
                 time.sleep(2)
     
+    # Connect to Server
+    def connect_to_server(self) -> bool:
+        """
+        Claim the server's single connection slot.
+        Returns False if another agent is already connected (HTTP 409).
+        """
+        try:
+            response = requests.post(
+                self.connect_endpoint,
+                headers=self._auth_headers(),
+                timeout=5
+            )
+            if response.status_code == 409:
+                print(
+                    "[ERROR] Another agent is already connected to this server.\n"
+                    "[ERROR] This server operates in 1:1 mode. "
+                    "Stop the existing agent before starting a new one."
+                )
+                return False
+            if response.status_code != 200:
+                print(f"[ERROR] Connect failed: HTTP {response.status_code}: {response.text}")
+                return False
+            print("[INFO] Agent registered with server (1:1 connection established)")
+            return True
+        except Exception as e:
+            print(f"[ERROR] Could not reach connect endpoint: {e}")
+            return False
+    
+    # Get Server URL
+    def disconnect_from_server(self):
+        """
+        Release the server's connection slot.
+        Best-effort — a warning is printed on failure.
+        """
+        try:
+            response = requests.post(
+                self.disconnect_endpoint,
+                headers=self._auth_headers(),
+                timeout=5
+            )
+            if response.status_code == 200:
+                print("[INFO] Disconnected from server — slot is now free")
+            else:
+                print(f"[WARN] Disconnect returned HTTP {response.status_code}. "
+                    "The server slot may remain occupied.")
+        except Exception as e:
+            print(f"[WARN] Failed to disconnect cleanly: {e}. "
+                "The server slot may remain occupied until the server restarts.")
+        
     # Auto-Stop Check
     def _should_stop(self) -> bool:
         """Check if agent should stop based on limits"""
@@ -332,15 +389,12 @@ class Agent:
                 'timestamp': str(int(time.time())),
                 'format': self.format
             }
-            headers = {}
-            if self.token:
-                headers['Authorization'] = f'Bearer {self.token}'
             
             response = requests.post(
                 self.upload_endpoint,
                 files=files,
                 data=data,
-                headers=headers,
+                headers=self._auth_headers(),
                 timeout=5
             )
             
@@ -387,6 +441,9 @@ class Agent:
         if not self.wait_for_server():
             return False
         
+        if not self.connect_to_server():
+            return False
+        
         self.running = True
         self.start_time = datetime.now()
         
@@ -405,6 +462,7 @@ class Agent:
             elapsed = (datetime.now() - self.start_time).total_seconds() if self.start_time else 0
             print(f"\n[INFO] Agent stopped")
             print(f"[INFO] Captured {self.frame_id} frames in {elapsed:.1f}s")
+            self.disconnect_from_server()
 
     # Main Loop
     def run(self):

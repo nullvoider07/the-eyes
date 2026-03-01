@@ -1,6 +1,6 @@
 # The Eye - Vision Capture Tool
 
-**Version:** 0.2.1  
+**Version:** 0.2.2  
 **Last Updated:** January 2026  
 **Developer:** Kartik (NullVoider)
 
