@@ -60,6 +60,7 @@ jobs:
             --hidden-import=requests \
             --hidden-import=click \
             --hidden-import=yaml \
+            --hidden-import=charset_normalizer \
             crates/eye/cli.py
 
       # Get Version
@@ -126,6 +127,7 @@ jobs:
             --hidden-import=requests \
             --hidden-import=click \
             --hidden-import=yaml \
+            --hidden-import=charset_normalizer \
             crates/eye/cli.py
 
       - name: Get Version
@@ -181,6 +183,7 @@ jobs:
             --hidden-import=requests \
             --hidden-import=click \
             --hidden-import=yaml \
+            --hidden-import=charset_normalizer \
             crates/eye/cli.py
 
       - name: Get Version
@@ -235,6 +238,7 @@ jobs:
             --hidden-import=requests \
             --hidden-import=click \
             --hidden-import=yaml \
+            --hidden-import=charset_normalizer \
             crates/eye/cli.py
 
       - name: Get Version
@@ -289,6 +293,7 @@ jobs:
             --hidden-import=requests `
             --hidden-import=click `
             --hidden-import=yaml `
+            --hidden-import=charset_normalizer `
             crates/eye/cli.py
 
       - name: Get Version
