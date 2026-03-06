@@ -8,7 +8,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
@@ -98,7 +98,7 @@ async fn logging_middleware(req: Request, next: Next) -> Response {
         m => m.to_string(),
     };
 
-    let timestamp = Local::now().format("%Y/%m/%d - %H:%M:%S");
+    let timestamp = Utc::now().format("%Y/%m/%d - %H:%M:%S");
     let latency_str = format!("{:?}", latency);
     let client_ip = "::1";
 

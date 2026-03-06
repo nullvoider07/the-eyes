@@ -38,7 +38,7 @@ jobs:
 
       # Install Python Dependencies
       - name: Install Python Dependencies
-        run: pip install pyinstaller mss pillow requests click pyyaml
+        run: pip install pyinstaller mss pillow requests click pyyaml charset-normalizer
 
       # Build Rust Binaries
       - name: Build Rust Binaries
@@ -106,7 +106,7 @@ jobs:
         run: cargo install cross
 
       - name: Install Python Dependencies
-        run: pip install pyinstaller mss pillow requests click pyyaml
+        run: pip install pyinstaller mss pillow requests click pyyaml charset-normalizer
 
       - name: Check Cross Config
         run: cat Cross.toml || echo "Cross.toml missing!"
@@ -165,7 +165,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       
       - name: Install Dependencies
-        run: pip install pyinstaller mss pillow requests click pyyaml
+        run: pip install pyinstaller mss pillow requests click pyyaml charset-normalizer
 
       - name: Build Rust Binaries
         run: cargo build --release
@@ -219,7 +219,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Install Dependencies
-        run: pip install pyinstaller mss pillow requests click pyyaml
+        run: pip install pyinstaller mss pillow requests click pyyaml charset-normalizer
 
       - name: Build Rust Binaries
         run: cargo build --release
@@ -272,7 +272,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       
       - name: Install Dependencies
-        run: pip install pyinstaller mss pillow requests click pyyaml
+        run: pip install pyinstaller mss pillow requests click pyyaml charset-normalizer
 
       # Build Rust (Windows automatically handles deps usually)
       - name: Build Rust Binaries
