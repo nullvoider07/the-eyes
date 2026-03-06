@@ -2,7 +2,7 @@
 import json
 from pathlib import Path
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 # DatasetExporter exports captured frames as datasets.
 class DatasetExporter:
@@ -17,7 +17,7 @@ class DatasetExporter:
         """Add a frame to the dataset"""
         self.frames.append({
             "frame_id": frame_id,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "size_bytes": len(frame_data),
             "metadata": metadata
         })

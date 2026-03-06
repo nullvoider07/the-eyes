@@ -9,7 +9,7 @@ import tempfile
 import shutil
 import stat
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from eye.agent import Agent
 
@@ -18,7 +18,7 @@ CONFIG_DIR = Path.home() / ".eye"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
 # Version - Update with each release
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 # GitHub repository
 REPO = "nullvoider07/the-eyes"
@@ -30,12 +30,13 @@ def _auth_headers(token):
 
 def _parse_datetime(value: str) -> datetime:
     """
-    Parse a human-readable datetime string into a datetime object.
+    Parse a human-readable datetime string into a UTC-aware datetime object.
     Accepted formats:
         2025-03-01 14:30:00
         2025-03-01T14:30:00
         2025-03-01 14:30
         2025-03-01
+    All inputs are treated as UTC.
     """
     for fmt in (
         "%Y-%m-%d %H:%M:%S",
@@ -44,11 +45,11 @@ def _parse_datetime(value: str) -> datetime:
         "%Y-%m-%d",
     ):
         try:
-            return datetime.strptime(value, fmt)
+            return datetime.strptime(value, fmt).replace(tzinfo=timezone.utc)
         except ValueError:
             continue
     raise click.BadParameter(
-        f"Cannot parse '{value}'. Use YYYY-MM-DD HH:MM:SS (or YYYY-MM-DD)."
+        f"Cannot parse '{value}'. Use YYYY-MM-DD HH:MM:SS (or YYYY-MM-DD) in UTC."
     )
 
 # CLI root

@@ -11,7 +11,7 @@ import signal
 from io import BytesIO
 from PIL import Image
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Check for MSS availability
 try:
@@ -445,7 +445,7 @@ class Agent:
             return False
         
         self.running = True
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
         
         if self.duration:
             self.stop_time = self.start_time + timedelta(seconds=self.duration)

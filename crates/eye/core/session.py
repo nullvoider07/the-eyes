@@ -1,6 +1,6 @@
 """Session management for Eye"""
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 # Session represents a capture session.
@@ -12,7 +12,7 @@ class Session:
         self.session_id = session_id
         self.name = name or f"session_{session_id[:8]}"
         self.duration = duration
-        self.start_time = datetime.now()
+        self.start_time = datetime.now(timezone.utc)
         self.end_time: Optional[datetime] = None
         self.frame_count = 0
         self.status = "active"
@@ -56,7 +56,7 @@ class SessionManager:
         """Stop a session"""
         session = self.sessions.get(session_id)
         if session:
-            session.end_time = datetime.now()
+            session.end_time = datetime.now(timezone.utc)
             session.status = "stopped"
     
     # List all sessions
