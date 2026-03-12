@@ -106,8 +106,15 @@ impl Agent {
         loop {
             tokio::select! {
                 _ = ticker.tick() => {
+                    let prev_interval = self.interval;
                     if let Err(e) = self.capture_and_upload().await {
                         error!("Error: {}", e);
+                    }
+                    // If the server pushed a new interval, recreate the ticker
+                    // so the change actually takes effect on the next tick.
+                    if self.interval != prev_interval {
+                        info!("Recreating ticker at new interval: {:?}", self.interval);
+                        ticker = interval(self.interval);
                     }
                 }
                 _ = &mut ctrl_c => {
@@ -153,7 +160,11 @@ async fn main() -> Result<()> {
     let token = env::var("EYE_AUTH_TOKEN")
         .unwrap_or_default();
 
-    let interval = Duration::from_millis(1500);
+    let interval_ms = env::var("EYE_INTERVAL_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(1500);
+    let interval = Duration::from_millis(interval_ms);
 
     info!("Server: {}", server_url);
     info!("Interval: {:.1}s", interval.as_secs_f64());

@@ -188,7 +188,7 @@ class Agent:
                 pass
             if attempt % 10 == 0:
                 print(f"[INFO] Still waiting for server... (Attempt {attempt})")
-                time.sleep(2)
+            time.sleep(2)
     
     # Connect to Server
     def connect_to_server(self) -> bool:
@@ -247,7 +247,7 @@ class Agent:
         
         # Duration limit
         if self.duration and self.start_time:
-            elapsed = (datetime.now() - self.start_time).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - self.start_time).total_seconds()
             if elapsed >= self.duration:
                 print(f"\n[INFO] Duration limit reached ({self.duration}s)")
                 return True
@@ -459,7 +459,7 @@ class Agent:
         """Stop the agent"""
         if self.running:
             self.running = False
-            elapsed = (datetime.now() - self.start_time).total_seconds() if self.start_time else 0
+            elapsed = (datetime.now(timezone.utc) - self.start_time).total_seconds() if self.start_time else 0
             print(f"\n[INFO] Agent stopped")
             print(f"[INFO] Captured {self.frame_id} frames in {elapsed:.1f}s")
             self.disconnect_from_server()

@@ -18,7 +18,7 @@ CONFIG_DIR = Path.home() / ".eye"
 CONFIG_FILE = CONFIG_DIR / "config.yaml"
 
 # Version - Update with each release
-__version__ = "0.2.3"
+__version__ = "0.2.4"
 
 # GitHub repository
 REPO = "nullvoider07/the-eyes"
@@ -290,26 +290,76 @@ def snapshot_list(server_url, token):
 @click.option('--server', 'server_url', default='http://localhost:8080',
               show_default=True, help='Server URL')
 @click.option('--token', default=None, help='Auth token')
-@click.option('--id', 'frame_id', required=True, type=int, help='Frame ID to download')
+@click.option('--id', 'frame_id', default=None, type=int, help='Frame ID to download')
+@click.option('--timestamp', 'timestamp', default=None,
+              help='Fetch the frame closest to this UTC timestamp  e.g. "2026-03-12 14:30:45"')
 @click.option('--output', '-o', default='.', show_default=True,
               help='Directory (or file path) to save the image to')
-def snapshot_fetch(server_url, token, frame_id, output):
+def snapshot_fetch(server_url, token, frame_id, timestamp, output):
     """
-    Download a specific frame from the ring buffer by its ID.
+    Download a specific frame from the ring buffer by ID or timestamp.
 
-    Use 'eye snapshot list' first to see which IDs are available.
-    The file is saved with a timestamp-based name identical to the one
-    the server would use, e.g. frame_2025-03-01T14-32-10.123Z.png.
+    Pass either --id or --timestamp (but not both). When --timestamp is
+    given the server's frame list is queried and the frame whose capture
+    time is closest to the requested moment is downloaded.
 
     \b
     Examples:
       eye snapshot fetch --id 42
       eye snapshot fetch --id 42 -o ~/screenshots
+      eye snapshot fetch --timestamp "2026-03-12 14:30:45"
+      eye snapshot fetch --timestamp "2026-03-12 14:30:45" -o ~/screenshots
       eye snapshot fetch --id 42 --server http://192.168.1.10:8080
     """
+    # Validate: exactly one of --id / --timestamp must be supplied
+    if frame_id is None and timestamp is None:
+        raise click.UsageError("Provide either --id or --timestamp.")
+    if frame_id is not None and timestamp is not None:
+        raise click.UsageError("--id and --timestamp are mutually exclusive.")
+
     server_url = server_url.rstrip('/')
     output_path = Path(output)
 
+    # Resolve timestamp → frame_id by finding the closest frame
+    if timestamp is not None:
+        try:
+            target_dt = _parse_datetime(timestamp)
+        except click.BadParameter as e:
+            click.echo(f"[ERROR] {e}", err=True)
+            sys.exit(1)
+
+        try:
+            list_response = requests.get(
+                f"{server_url}/frames",
+                headers=_auth_headers(token),
+                timeout=10,
+            )
+            list_response.raise_for_status()
+        except requests.RequestException as e:
+            click.echo(f"[ERROR] Could not reach server: {e}", err=True)
+            sys.exit(1)
+
+        frames = list_response.json().get("frames", [])
+        if not frames:
+            click.echo("[ERROR] No frames in buffer.", err=True)
+            sys.exit(1)
+
+        # Pick the frame whose timestamp is closest to the target
+        def _delta(frame):
+            try:
+                ft = datetime.fromisoformat(frame["timestamp"].replace("Z", "+00:00"))
+                return abs((ft - target_dt).total_seconds())
+            except (ValueError, KeyError):
+                return float("inf")
+
+        best = min(frames, key=_delta)
+        frame_id = best["id"]
+        click.echo(
+            f"[INFO] Closest frame to '{timestamp}' → "
+            f"ID {frame_id}  ({best['timestamp']})"
+        )
+
+    # Download the frame by ID
     try:
         response = requests.get(
             f"{server_url}/frames/{frame_id}",
@@ -626,7 +676,7 @@ def uninstall(yes, purge):
             python_package_info = {
                 'name': meta['Name'],
                 'version': meta['Version'],
-                'location': '',   # importlib.metadata doesn't expose install path directly
+                'location': '',
             }
         except PackageNotFoundError:
             pass
