@@ -163,7 +163,7 @@ async fn main() -> Result<()> {
     let interval_ms = env::var("EYE_INTERVAL_MS")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(1500);
+        .unwrap_or(1000);
     let interval = Duration::from_millis(interval_ms);
 
     info!("Server: {}", server_url);

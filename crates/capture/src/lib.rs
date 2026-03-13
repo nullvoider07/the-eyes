@@ -17,7 +17,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            interval: Duration::from_millis(1500),
+            interval: Duration::from_millis(1000),
             format: ImageFormat::Png,
         }
     }

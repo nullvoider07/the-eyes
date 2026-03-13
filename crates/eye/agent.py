@@ -33,7 +33,7 @@ class Agent:
         self,
         server_url: Optional[str] = None,
         token: Optional[str] = None,
-        interval: float = 1.5,
+        interval: float = 1.0,
         format: str = "png",
         quality: int = 95,
         duration: Optional[int] = None,
@@ -379,6 +379,9 @@ class Agent:
         return self._encode_image(img)
 
     def upload_frame(self, image_data: bytes) -> bool:
+        # Cap upload timeout to 90% of the current interval (min 2s) so a
+        # slow upload can never silently consume the next capture window.
+        upload_timeout = max(2.0, self.interval * 0.9)
         try:
             mime_type = f"image/{self.format}"
             filename = f"frame.{self.format}"
@@ -395,7 +398,7 @@ class Agent:
                 files=files,
                 data=data,
                 headers=self._auth_headers(),
-                timeout=5
+                timeout=upload_timeout
             )
             
             if response.status_code == 200:
