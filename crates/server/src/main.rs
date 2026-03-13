@@ -32,7 +32,7 @@ struct AgentConfig {
 impl Default for AgentConfig {
     fn default() -> Self {
         Self {
-            interval: 1.5,
+            interval: 1.0,
             format: "png".to_string(),
             quality: 95,
         }
@@ -592,7 +592,7 @@ mod tests {
     #[test]
     fn test_default_config() {
         let config = AgentConfig::default();
-        assert_eq!(config.interval, 1.5);
+        assert_eq!(config.interval, 1.0);
         assert_eq!(config.format, "png");
         assert_eq!(config.quality, 95);
     }

@@ -10,7 +10,7 @@ CONFIG_FILE = CONFIG_DIR / "config.yaml"
 # Default configuration structure
 DEFAULT_CONFIG = {
     "capture": {
-        "interval": 1.5,
+        "interval": 1.0,
         "format": "png",
         "quality": 100,
         "resolution": {"width": 1920, "height": 1080}
