@@ -47,8 +47,15 @@ pub struct Client {
 // Implementation of Client
 impl Client {
     pub fn new(server_url: String, token: String) -> Self {
+        Self::new_with_timeout(server_url, token, Duration::from_secs(5))
+    }
+
+    // Create a client with a custom request timeout.
+    // Pass a timeout that matches the capture interval so slow uploads
+    // cannot silently consume the next capture window.
+    pub fn new_with_timeout(server_url: String, token: String, timeout: Duration) -> Self {
         let client = HttpClient::builder()
-            .timeout(Duration::from_secs(5))
+            .timeout(timeout)
             .build()
             .expect("Failed to build HTTP client");
 

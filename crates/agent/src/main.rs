@@ -26,7 +26,12 @@ impl Agent {
             format: ImageFormat::Png,
         });
 
-        let client = Client::new(server_url, token);
+        // Set HTTP timeout to 90% of the capture interval (min 2s) so
+        // a slow upload can never silently consume the next capture window.
+        let http_timeout = Duration::from_secs_f64(
+            (capture_interval.as_secs_f64() * 0.9).max(2.0)
+        );
+        let client = Client::new_with_timeout(server_url, token, http_timeout);
 
         Self {
             engine,
@@ -100,6 +105,10 @@ impl Agent {
         info!("Starting capture loop...");
 
         let mut ticker = interval(self.interval);
+        // Delay missed ticks instead of bursting to catch up.
+        // Without this, if an upload takes longer than the interval,
+        // Tokio fires the next tick immediately causing uneven frame spacing.
+        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         let ctrl_c = signal::ctrl_c();
         tokio::pin!(ctrl_c);
 
@@ -115,6 +124,7 @@ impl Agent {
                     if self.interval != prev_interval {
                         info!("Recreating ticker at new interval: {:?}", self.interval);
                         ticker = interval(self.interval);
+                        ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
                     }
                 }
                 _ = &mut ctrl_c => {
