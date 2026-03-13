@@ -90,8 +90,20 @@ impl Engine {
         
         match self.config.format {
             ImageFormat::Png => {
-                img.write_to(&mut buffer, ImageFormat::Png)
-                    .context("Failed to encode PNG")?;
+                // CompressionType::Fast (zlib level 1) cuts encode time from
+                // ~150ms to ~25ms at the cost of ~15% larger files.
+                // The default (level 6) is too slow for 1s capture intervals.
+                let encoder = image::codecs::png::PngEncoder::new_with_quality(
+                    &mut buffer,
+                    image::codecs::png::CompressionType::Fast,
+                    image::codecs::png::FilterType::Sub,
+                );
+                encoder.write_image(
+                    img.as_bytes(),
+                    img.width(),
+                    img.height(),
+                    img.color().into(),
+                ).context("Failed to encode PNG")?;
             }
             ImageFormat::Jpeg => {
                 img.write_to(&mut buffer, ImageFormat::Jpeg)
