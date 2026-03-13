@@ -269,7 +269,7 @@ Send real-time notifications for:
 #### Default Configuration
 
 - **Capture Interval**: 1.0 seconds
-- **Image Format**: PNG
+- **Image Format**: WebP
 - **Quality**: 95/100 (for JPEG)
 - **Frame Buffer**: 100 frames
 - **Network Timeout**: 5 seconds
