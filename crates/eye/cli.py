@@ -68,7 +68,8 @@ def server():
 @server.command(name='start')
 @click.option('--port', default=8080, help='Server port')
 @click.option('--token', help='Auth token')
-def start_server(port, token):
+@click.option('--server-host', default=None, help='Host IP of this instance (stored in /health and /debug for cluster identification)')
+def start_server(port, token, server_host):
     """Start Rust server"""
     click.echo(f"[START] Starting Eye Server (Rust) on port {port}")
 
@@ -76,6 +77,8 @@ def start_server(port, token):
     env['EYE_PORT'] = str(port)
     if token:
         env['EYE_AUTH_TOKEN'] = token
+    if server_host:
+        env['EYE_SERVER_HOST'] = server_host
 
     server_bin = None
     possible_locations = [

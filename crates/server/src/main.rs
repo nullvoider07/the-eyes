@@ -48,15 +48,19 @@ struct AppState {
     /// True when an agent has claimed the connection slot.
     /// Only one agent may be connected at a time (1:1 model).
     agent_connected: Arc<RwLock<bool>>,
+    /// Host IP of this server instance, set via EYE_SERVER_HOST.
+    /// Exposed in /health and /debug for cluster identification.
+    host: String,
 }
 
 impl AppState {
-    fn new(max_frames: usize) -> Self {
+    fn new(max_frames: usize, host: String) -> Self {
         Self {
             store: Arc::new(MemoryStore::new(max_frames)),
             start_time: Instant::now(),
             config: Arc::new(RwLock::new(AgentConfig::default())),
             agent_connected: Arc::new(RwLock::new(false)),
+            host,
         }
     }
 }
@@ -119,6 +123,7 @@ async fn health_handler(State(state): State<AppState>) -> Json<serde_json::Value
 
     Json(json!({
         "status": "healthy",
+        "host": state.host,
         "uptime": format!("{:.2}s", uptime),
         "frame_count": frames.len(),
         "agent_connected": agent_connected,
@@ -501,6 +506,7 @@ async fn debug_handler(State(state): State<AppState>) -> Json<serde_json::Value>
     let agent_connected = *state.agent_connected.read().await;
 
     Json(json!({
+        "host":            state.host,
         "uptime_sec":      uptime,
         "total_frames":    frames.len(),
         "current_config":  config,
@@ -539,7 +545,10 @@ async fn main() -> Result<()> {
 
     info!("Ring buffer: {} frames max", max_frames);
 
-    let state = AppState::new(max_frames);
+    let server_host = env::var("EYE_SERVER_HOST")
+        .unwrap_or_else(|_| "0.0.0.0".to_string());
+
+    let state = AppState::new(max_frames, server_host);
 
     let app = Router::new()
         // Status
@@ -561,10 +570,10 @@ async fn main() -> Result<()> {
         .route("/frames/:id",    get(frame_by_id_handler))
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
         .layer(middleware::from_fn(logging_middleware))
-        .with_state(state);
+        .with_state(state.clone());
 
     let addr = format!("0.0.0.0:{}", port);
-    info!("Eye Server starting on {} (1:1 agent mode)", addr);
+    info!("Eye Server '{}' starting on {} (1:1 agent mode)", state.host, addr);
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
@@ -585,7 +594,7 @@ mod tests {
 
     #[test]
     fn test_app_state_creation() {
-        let state = AppState::new(100);
+        let state = AppState::new(100, "127.0.0.1".to_string());
         assert!(state.start_time.elapsed().as_secs() < 1);
     }
 
@@ -599,7 +608,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_connected_initial_false() {
-        let state = AppState::new(100);
+        let state = AppState::new(100, "127.0.0.1".to_string());
         let connected = state.agent_connected.read().await;
         assert!(!*connected);
     }
