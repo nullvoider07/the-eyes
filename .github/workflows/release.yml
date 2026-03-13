@@ -345,41 +345,5 @@ jobs:
           files: release-assets/*
           draft: false
           prerelease: false
-          body: |
-            # Eye Vision Capture Tool (Rust Edition)
-            
-            **New Architecture:** This release replaces the Go backend with a high-performance **Rust** engine.
-            
-            ### Included Components
-            - `eye`: Python CLI (Cross-platform manager)
-            - `eye-server`: Rust High-throughput Ingestion Server
-            - `eye-agent`: Rust Native Capture Agent (Fast!)
-            
-            ### Downloads
-            - **Linux x64**: `eye-*-linux-x64.tar.gz`
-            - **Linux ARM64**: `eye-*-linux-arm64.tar.gz`
-            - **macOS (Apple Silicon)**: `eye-*-osx-arm64.tar.gz`
-            - **macOS (Intel)**: `eye-*-osx-x64.tar.gz`
-            - **Windows x64**: `eye-*-win-x64.zip`
-            
-            ### Installation
-            
-            **Linux / macOS:**
-            ```bash
-            tar -xzf eye-*.tar.gz
-            sudo cp bin/* /usr/local/bin/
-            ```
-            
-            **Windows:**
-            Extract the zip and add the `bin` folder to your System PATH.
-            
-            ### Usage
-            ```bash
-            # Start Server
-            eye server start
-            
-            # Start Agent (Native Rust Mode)
-            eye agent start --server http://localhost:8080 --rust
-            ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
