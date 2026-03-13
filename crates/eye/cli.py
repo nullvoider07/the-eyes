@@ -120,7 +120,7 @@ def agent():
 @agent.command(name='start')
 @click.option('--server', required=True, help='Server URL (e.g. http://localhost:8080)')
 @click.option('--token', help='Auth token')
-@click.option('--interval', type=float, default=1.0, help='Capture interval (seconds)')
+@click.option('--interval', type=float, default=1.5, help='Capture interval (seconds)')
 @click.option('--format', type=click.Choice(['png', 'jpeg', 'webp', 'bmp', 'tiff']), default='png', help='Image format')
 @click.option('--quality', type=int, default=95, help='Compression quality (1-100)')
 @click.option('--duration', type=int, help='Auto-stop after N seconds')
@@ -621,9 +621,17 @@ def update(check_only):
             src = extracted_bin_dir / binary
             if src.exists():
                 dst = install_dir / binary
-                shutil.copy2(str(src), str(dst))
+                # Atomic rename strategy: write to a sibling .new temp file
+                # then rename over the old binary in a single syscall.
+                # Direct overwrite with shutil.copy2 fails on Linux/Windows
+                # with [Errno 26] Text file busy when the binary is running.
+                # macOS (APFS/HFS+) allows direct overwrite but os.replace()
+                # is safe and correct on all platforms.
+                dst_new = dst.with_suffix('.new')
+                shutil.copy2(str(src), str(dst_new))
                 if os_name != 'win':
-                    dst.chmod(dst.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+                    dst_new.chmod(dst_new.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+                os.replace(str(dst_new), str(dst))
                 click.echo(f"  ✓ Installed: {dst}")
 
         shutil.rmtree(temp_dir, ignore_errors=True)
