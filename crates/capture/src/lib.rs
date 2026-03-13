@@ -18,7 +18,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             interval: Duration::from_millis(1000),
-            format: ImageFormat::Png,
+            format: ImageFormat::WebP,
         }
     }
 }

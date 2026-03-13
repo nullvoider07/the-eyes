@@ -23,7 +23,7 @@ impl Agent {
     fn new(server_url: String, token: String, capture_interval: Duration) -> Self {
         let engine = Engine::new(CaptureConfig {
             interval: capture_interval,
-            format: ImageFormat::Png,
+            format: ImageFormat::WebP,
         });
 
         // Set HTTP timeout to 90% of the capture interval (min 2s) so

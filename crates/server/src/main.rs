@@ -33,7 +33,7 @@ impl Default for AgentConfig {
     fn default() -> Self {
         Self {
             interval: 1.0,
-            format: "png".to_string(),
+            format: "webp".to_string(),
             quality: 95,
         }
     }

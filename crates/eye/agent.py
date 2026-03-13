@@ -34,7 +34,7 @@ class Agent:
         server_url: Optional[str] = None,
         token: Optional[str] = None,
         interval: float = 1.0,
-        format: str = "png",
+        format: str = "webp",
         quality: int = 95,
         duration: Optional[int] = None,
         max_frames: Optional[int] = None,
