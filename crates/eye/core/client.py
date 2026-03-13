@@ -1,5 +1,6 @@
 """Python client SDK for Eye server"""
 import requests
+from datetime import datetime
 from typing import Optional, Dict, Any
 from io import BytesIO
 
@@ -63,6 +64,36 @@ class EyeClient:
         response.raise_for_status()
         return response.json()
     
+    # Get the frame whose capture time is closest to the given UTC datetime
+    def get_closest_frame(self, timestamp: "datetime") -> Dict[str, Any]:
+        """Fetch the frame closest to a given UTC datetime.
+
+        Returns a dict with:
+          - 'data'      : raw image bytes
+          - 'frame_id'  : matched frame ID (str)
+          - 'timestamp' : matched frame timestamp (RFC3339 str)
+          - 'filename'  : suggested save filename from Content-Disposition
+        """
+        unix_ts = int(timestamp.timestamp())
+        response = self.session.get(
+            f'{self.server_url}/frames/closest',
+            params={'timestamp': unix_ts},
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+
+        disposition = response.headers.get('content-disposition', '')
+        filename = None
+        if 'filename="' in disposition:
+            filename = disposition.split('filename="')[1].rstrip('"')
+
+        return {
+            'data':      response.content,
+            'frame_id':  response.headers.get('x-frame-id', ''),
+            'timestamp': response.headers.get('x-frame-timestamp', ''),
+            'filename':  filename,
+        }
+
     # Upload a frame to the server
     def upload_frame(self, frame_data: bytes, frame_id: int) -> Dict[str, Any]:
         """Upload a frame to server"""

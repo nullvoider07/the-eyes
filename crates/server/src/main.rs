@@ -48,19 +48,15 @@ struct AppState {
     /// True when an agent has claimed the connection slot.
     /// Only one agent may be connected at a time (1:1 model).
     agent_connected: Arc<RwLock<bool>>,
-    /// Host IP of this server instance, set via EYE_SERVER_HOST.
-    /// Exposed in /health and /debug for cluster identification.
-    host: String,
 }
 
 impl AppState {
-    fn new(max_frames: usize, host: String) -> Self {
+    fn new(max_frames: usize) -> Self {
         Self {
             store: Arc::new(MemoryStore::new(max_frames)),
             start_time: Instant::now(),
             config: Arc::new(RwLock::new(AgentConfig::default())),
             agent_connected: Arc::new(RwLock::new(false)),
-            host,
         }
     }
 }
@@ -72,6 +68,13 @@ struct RangeQuery {
     from: i64,
     /// End of the window as a Unix timestamp (seconds, inclusive)
     to: i64,
+}
+
+// Query parameters accepted by GET /frames/closest
+#[derive(Debug, Deserialize)]
+struct ClosestQuery {
+    /// Target timestamp as Unix seconds
+    timestamp: i64,
 }
 
 // Logging middleware
@@ -123,7 +126,6 @@ async fn health_handler(State(state): State<AppState>) -> Json<serde_json::Value
 
     Json(json!({
         "status": "healthy",
-        "host": state.host,
         "uptime": format!("{:.2}s", uptime),
         "frame_count": frames.len(),
         "agent_connected": agent_connected,
@@ -405,6 +407,61 @@ async fn frame_by_id_handler(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
 }
 
+// GET /frames/closest
+
+// Returns the single frame whose capture timestamp is closest to the requested
+// Unix timestamp. Responds with the raw image bytes — same format as /frames/:id.
+// Query parameter: ?timestamp=<unix_seconds>
+async fn frames_closest_handler(
+    State(state): State<AppState>,
+    Query(params): Query<ClosestQuery>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let target = DateTime::<Utc>::from_timestamp(params.timestamp, 0)
+        .ok_or((StatusCode::BAD_REQUEST, "Invalid timestamp".to_string()))?;
+
+    let frames = state.store.list().await;
+
+    if frames.is_empty() {
+        return Err((StatusCode::NOT_FOUND, "No frames in buffer".to_string()));
+    }
+
+    // Find the frame with the smallest absolute time delta from target
+    let closest = frames
+        .into_iter()
+        .min_by_key(|f| {
+            let delta = (f.timestamp - target).num_milliseconds().abs();
+            delta
+        })
+        .ok_or((StatusCode::NOT_FOUND, "No frames in buffer".to_string()))?;
+
+    let content_type = closest
+        .metadata
+        .get("content-type")
+        .cloned()
+        .unwrap_or_else(|| "image/webp".to_string());
+
+    let format = closest
+        .metadata
+        .get("format")
+        .cloned()
+        .unwrap_or_else(|| "webp".to_string());
+
+    let ts = closest.timestamp.format("%Y-%m-%dT%H-%M-%S%.3fZ");
+    let filename = format!("frame_{}.{}", ts, format);
+
+    axum::response::Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, content_type)
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
+        .header("x-frame-id", closest.id.to_string())
+        .header("x-frame-timestamp", closest.timestamp.to_rfc3339())
+        .body(axum::body::Body::from(closest.data))
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))
+}
+
 // GET /frames/range
 
 // Returns all frames within [from, to] (Unix seconds) as a zip archive.
@@ -506,7 +563,6 @@ async fn debug_handler(State(state): State<AppState>) -> Json<serde_json::Value>
     let agent_connected = *state.agent_connected.read().await;
 
     Json(json!({
-        "host":            state.host,
         "uptime_sec":      uptime,
         "total_frames":    frames.len(),
         "current_config":  config,
@@ -545,10 +601,7 @@ async fn main() -> Result<()> {
 
     info!("Ring buffer: {} frames max", max_frames);
 
-    let server_host = env::var("EYE_SERVER_HOST")
-        .unwrap_or_else(|_| "0.0.0.0".to_string());
-
-    let state = AppState::new(max_frames, server_host);
+    let state = AppState::new(max_frames);
 
     let app = Router::new()
         // Status
@@ -566,14 +619,15 @@ async fn main() -> Result<()> {
         // Axum does not try to parse "range" as an integer frame ID.
         .route("/snapshot.png",  get(snapshot_handler))
         .route("/frames",        get(frames_list_handler))
-        .route("/frames/range",  get(frames_range_handler))
-        .route("/frames/:id",    get(frame_by_id_handler))
+        .route("/frames/range",   get(frames_range_handler))
+        .route("/frames/closest", get(frames_closest_handler))
+        .route("/frames/:id",     get(frame_by_id_handler))
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
         .layer(middleware::from_fn(logging_middleware))
-        .with_state(state.clone());
+        .with_state(state);
 
     let addr = format!("0.0.0.0:{}", port);
-    info!("Eye Server '{}' starting on {} (1:1 agent mode)", state.host, addr);
+    info!("Eye Server starting on {} (1:1 agent mode)", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr)
         .await
@@ -594,7 +648,7 @@ mod tests {
 
     #[test]
     fn test_app_state_creation() {
-        let state = AppState::new(100, "127.0.0.1".to_string());
+        let state = AppState::new(100);
         assert!(state.start_time.elapsed().as_secs() < 1);
     }
 
@@ -608,7 +662,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_agent_connected_initial_false() {
-        let state = AppState::new(100, "127.0.0.1".to_string());
+        let state = AppState::new(100);
         let connected = state.agent_connected.read().await;
         assert!(!*connected);
     }

@@ -107,6 +107,7 @@ The Eye Server is a lightweight, high-performance Rust application that manages 
 | `/snapshot.png` | GET | Retrieve latest captured frame |
 | `/frames` | GET | List all frames in the ring buffer (metadata only) |
 | `/frames/:id` | GET | Download a specific frame by ID |
+| `/frames/closest` | GET | Download the frame closest to a given Unix timestamp |
 | `/frames/range` | GET | Download all frames in a time window as a zip archive |
 | `/admin/config` | POST | Update global agent configuration |
 | `/debug` | GET | Server debug information including `agent_connected` state |
@@ -554,7 +555,7 @@ Download a single frame from the ring buffer. Pass either `--id` or `--timestamp
 
 **Accepted datetime formats**: `YYYY-MM-DD HH:MM:SS`, `YYYY-MM-DD HH:MM`, `YYYY-MM-DD`
 
-When `--timestamp` is used, the command fetches the frame list from the server and downloads whichever frame's capture time is closest to the requested moment. It prints the matched frame ID and timestamp before downloading.
+When `--timestamp` is used, the command calls `GET /frames/closest` on the server — a single round-trip that returns the closest frame directly. It prints the matched frame ID and timestamp before saving.
 
 ```bash
 # Fetch by ID
@@ -919,6 +920,7 @@ Check server health.
 ```json
 {
   "status": "healthy",
+  "host": "172.30.179.125",
   "uptime": "3600.50s",
   "frame_count": 240
 }
@@ -1037,6 +1039,31 @@ Download all frames within a Unix timestamp window as a zip archive.
 - `X-Frame-Count`: Number of frames in the archive
 
 **Response**: Zip archive containing one image file per frame, each named by capture timestamp and format extension. Returns 404 if no frames exist in the window.
+
+#### GET /frames/closest
+
+Download the single frame whose capture timestamp is closest to the requested time. Resolves in one round-trip — no need to call `GET /frames` and search client-side.
+
+**Query Parameters**:
+- `timestamp`: Target time as a Unix timestamp (seconds)
+
+**Response Headers**:
+- `Content-Type`: Actual image format (e.g. `image/webp`, `image/png`)
+- `Content-Disposition`: `attachment; filename="frame_2026-03-13T09-20-59.000Z.webp"`
+- `X-Frame-ID`: ID of the matched frame
+- `X-Frame-Timestamp`: Capture timestamp of the matched frame (RFC 3339)
+
+**Response**: Binary image data. Returns 404 if the buffer is empty.
+
+```bash
+# Fetch frame closest to a given time
+curl "http://localhost:8080/frames/closest?timestamp=1741859259" -o frame.webp
+
+# With auth
+curl -H "Authorization: Bearer mytoken" \
+  "http://localhost:8080/frames/closest?timestamp=1741859259" \
+  -o frame.webp
+```
 
 #### POST /admin/config
 

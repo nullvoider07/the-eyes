@@ -303,8 +303,8 @@ def snapshot_fetch(server_url, token, frame_id, timestamp, output):
     Download a specific frame from the ring buffer by ID or timestamp.
 
     Pass either --id or --timestamp (but not both). When --timestamp is
-    given the server's frame list is queried and the frame whose capture
-    time is closest to the requested moment is downloaded.
+    given the server resolves the closest frame in a single request via
+    GET /frames/closest — no local searching required.
 
     \b
     Examples:
@@ -323,7 +323,7 @@ def snapshot_fetch(server_url, token, frame_id, timestamp, output):
     server_url = server_url.rstrip('/')
     output_path = Path(output)
 
-    # Resolve timestamp → frame_id by finding the closest frame
+    # Resolve timestamp → single /frames/closest call (one round-trip)
     if timestamp is not None:
         try:
             target_dt = _parse_datetime(timestamp)
@@ -331,56 +331,52 @@ def snapshot_fetch(server_url, token, frame_id, timestamp, output):
             click.echo(f"[ERROR] {e}", err=True)
             sys.exit(1)
 
+        unix_ts = int(target_dt.timestamp())
+
         try:
-            list_response = requests.get(
-                f"{server_url}/frames",
+            response = requests.get(
+                f"{server_url}/frames/closest",
                 headers=_auth_headers(token),
+                params={"timestamp": unix_ts},
                 timeout=10,
+                stream=True,
             )
-            list_response.raise_for_status()
+            if response.status_code == 404:
+                click.echo("[ERROR] No frames in buffer.", err=True)
+                sys.exit(1)
+            response.raise_for_status()
         except requests.RequestException as e:
             click.echo(f"[ERROR] Could not reach server: {e}", err=True)
             sys.exit(1)
 
-        frames = list_response.json().get("frames", [])
-        if not frames:
-            click.echo("[ERROR] No frames in buffer.", err=True)
-            sys.exit(1)
-
-        # Pick the frame whose timestamp is closest to the target
-        def _delta(frame):
-            try:
-                ft = datetime.fromisoformat(frame["timestamp"].replace("Z", "+00:00"))
-                return abs((ft - target_dt).total_seconds())
-            except (ValueError, KeyError):
-                return float("inf")
-
-        best = min(frames, key=_delta)
-        frame_id = best["id"]
+        matched_id = response.headers.get("x-frame-id", "?")
+        matched_ts = response.headers.get("x-frame-timestamp", "?")
         click.echo(
             f"[INFO] Closest frame to '{timestamp}' → "
-            f"ID {frame_id}  ({best['timestamp']})"
+            f"ID {matched_id}  ({matched_ts})"
         )
+        frame_id = matched_id
 
-    # Download the frame by ID
-    try:
-        response = requests.get(
-            f"{server_url}/frames/{frame_id}",
-            headers=_auth_headers(token),
-            timeout=10,
-            stream=True,
-        )
-        if response.status_code == 404:
-            click.echo(
-                f"[ERROR] Frame {frame_id} not found. "
-                "Run 'eye snapshot list' to see available frames.",
-                err=True,
+    # Download the frame by ID (used when --id was passed directly)
+    else:
+        try:
+            response = requests.get(
+                f"{server_url}/frames/{frame_id}",
+                headers=_auth_headers(token),
+                timeout=10,
+                stream=True,
             )
+            if response.status_code == 404:
+                click.echo(
+                    f"[ERROR] Frame {frame_id} not found. "
+                    "Run 'eye snapshot list' to see available frames.",
+                    err=True,
+                )
+                sys.exit(1)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            click.echo(f"[ERROR] Could not reach server: {e}", err=True)
             sys.exit(1)
-        response.raise_for_status()
-    except requests.RequestException as e:
-        click.echo(f"[ERROR] Could not reach server: {e}", err=True)
-        sys.exit(1)
 
     # The server sets Content-Disposition with the correct filename —
     # use it if present, otherwise build one ourselves.
