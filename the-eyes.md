@@ -1,6 +1,6 @@
 # The Eye - Vision Capture Tool
 
-**Version:** 0.2.2  
+**Version:** 0.2.4  
 **Last Updated:** March 2026  
 **Developer:** Kartik (NullVoider)
 
@@ -268,7 +268,7 @@ Send real-time notifications for:
 
 #### Default Configuration
 
-- **Capture Interval**: 1.5 seconds
+- **Capture Interval**: 1.0 seconds
 - **Image Format**: PNG
 - **Quality**: 95/100 (for JPEG)
 - **Frame Buffer**: 100 frames
@@ -280,7 +280,7 @@ Send real-time notifications for:
 - **Upload Time**: 5-25ms (network dependent)
 - **Memory Usage**: 50-150 MB (agent), 100-500 MB (server)
 - **CPU Usage**: 1-5% (agent), <1% (server)
-- **Bandwidth**: 0.5-2 MB/s @ 1.5s interval
+- **Bandwidth**: 0.5-2 MB/s @ 1.0s interval
 
 #### Scalability
 
@@ -467,7 +467,7 @@ eye agent start [OPTIONS]
 
 **Optional Options**:
 - `--token <TOKEN>`: Authentication token
-- `--interval <SECONDS>`: Capture interval (default: 1.5)
+- `--interval <SECONDS>`: Capture interval (default: 1.0)
 - `--format <FORMAT>`: Image format: png|jpeg|webp|bmp|tiff (default: png)
 - `--quality <1-100>`: Compression quality (default: 95)
 - `--duration <SECONDS>`: Auto-stop after duration
@@ -533,19 +533,29 @@ eye snapshot list
 #### Fetch a Specific Frame
 
 ```bash
-eye snapshot fetch --id <N> [OPTIONS]
+eye snapshot fetch [--id <N> | --timestamp "<datetime>"] [OPTIONS]
 ```
 
-**Required**:
-- `--id <N>`: Frame ID (use `eye snapshot list` to find available IDs)
+Download a single frame from the ring buffer. Pass either `--id` or `--timestamp` — they are mutually exclusive.
 
 **Options**:
+- `--id <N>`: Frame ID to download (use `eye snapshot list` to find available IDs)
+- `--timestamp <datetime>`: Download the frame closest to this UTC timestamp
 - `--server <URL>`: Server URL (default: http://localhost:8080)
 - `--token <TOKEN>`: Authentication token
 - `--output, -o <PATH>`: Directory or file path to save to
 
+**Accepted datetime formats**: `YYYY-MM-DD HH:MM:SS`, `YYYY-MM-DD HH:MM`, `YYYY-MM-DD`
+
+When `--timestamp` is used, the command fetches the frame list from the server and downloads whichever frame's capture time is closest to the requested moment. It prints the matched frame ID and timestamp before downloading.
+
 ```bash
+# Fetch by ID
 eye snapshot fetch --id 42 -o ~/screenshots
+
+# Fetch by timestamp (finds the closest frame automatically)
+eye snapshot fetch --timestamp "2026-03-12 14:30:45"
+eye snapshot fetch --timestamp "2026-03-12 14:30:45" -o ~/screenshots --token mytoken
 ```
 
 #### Download a Time Range
@@ -665,7 +675,7 @@ Create `~/.eye/config.yaml`:
 
 ```yaml
 capture:
-  interval: 1.5
+  interval: 1.0
   format: png
   quality: 100
   resolution:
@@ -954,7 +964,7 @@ Upload a captured frame. Requires a prior `POST /connect`.
   "frame_id": 123,
   "size_kb": 245.3,
   "config": {
-    "interval": 1.5,
+    "interval": 1.0,
     "format": "png",
     "quality": 95
   }
@@ -1059,7 +1069,7 @@ Get server debug information.
   "total_frames": 240,
   "agent_connected": true,
   "current_config": {
-    "interval": 1.5,
+    "interval": 1.0,
     "format": "png",
     "quality": 95
   }
@@ -1137,7 +1147,7 @@ while session.status == "active":
     metadata = client.get_snapshot_metadata()
     exporter.add_frame(frame, int(metadata['frame_id']), metadata)
     
-    time.sleep(1.5)
+    time.sleep(1.0)
 
 # Export dataset
 exporter.export_json(Path("training_data.json"))
@@ -1258,7 +1268,7 @@ setup_logging(level="DEBUG", log_file=Path("/tmp/eye.log"))
 
 ---
 
-**Last Updated:** March 1, 2026  
+**Last Updated:** March 13, 2026  
 **Developer:** Kartik (NullVoider)
 
 ---
