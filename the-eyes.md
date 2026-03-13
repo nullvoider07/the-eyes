@@ -327,7 +327,7 @@ This will:
 ### 1. Start the Server
 
 ```bash
-eye server start --port 8080 --token my-secret-token
+eye server start --port 8080 --token my-secret-token --server-host <IP address/host ID>
 ```
 
 Or use the Rust binary directly:
@@ -441,17 +441,24 @@ eye agent start \
 eye server start [OPTIONS]
 ```
 
+```
 **Options**:
 - `--port <PORT>`: Server port (default: 8080)
 - `--token <TOKEN>`: Authentication token (optional)
+- `--server-host <IP>`: Host IP of this instance (optional). Stored in `/health` and `/debug` responses for cluster identification. Does not change the bind address — the server always listens on `0.0.0.0`.
 
 **Environment Variables**:
 - `EYE_PORT`: Server port
 - `EYE_AUTH_TOKEN`: Authentication token
+- `EYE_SERVER_HOST`: Host IP label (equivalent to `--server-host`)
 
 **Example**:
 ```bash
+# Local
 eye server start --port 9000 --token supersecret
+
+# Cloud deployment — tag with the machine's IP for cluster identification
+eye server start --port 8080 --token supersecret --server-host <IP address/host ID>
 ```
 
 ### Agent Commands
@@ -654,6 +661,7 @@ Set via environment variables:
 export EYE_PORT=8080
 export EYE_AUTH_TOKEN=your-secret-token
 export EYE_MAX_FRAMES=200        # ring buffer capacity (default: 100)
+export EYE_SERVER_HOST=172.30.179.125  # host IP label, shown in /health and /debug
 ```
 
 ### Agent Configuration
